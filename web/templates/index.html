@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FeedFusion - Agrégateur RSS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        function markAsRead(itemId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            fetch('/item/' + itemId + '/read?view={{.ViewMode}}&filter={{.FilterMode}}&showRead={{.ShowRead}}', {
+                method: 'GET',
+                credentials: 'same-origin'
+            }).then(function () {
+                var article = document.querySelector('article[data-id="' + itemId + '"]');
+                if (article) {
+                    article.classList.remove('unread');
+                    article.classList.add('read');
+                    // Update read indicator in article
+                    var readBtn = article.querySelector('.mark-read');
+                    var unreadBtn = article.querySelector('.mark-unread');
+                    if (readBtn) readBtn.style.display = 'none';
+                    if (unreadBtn) unreadBtn.style.display = 'inline-flex';
+                    // Update title color
+                    var titleLink = article.querySelector('.item-title a');
+                    if (titleLink) {
+                        titleLink.style.color = 'var(--text-secondary)';
+                    }
+                }
+                // Reload page to update counts
+                window.location.reload();
+            });
+            return false;
+        }
+
+        function markAsUnread(itemId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            fetch('/item/' + itemId + '/unread?view={{.ViewMode}}&filter={{.FilterMode}}&showRead={{.ShowRead}}', {
+                method: 'GET',
+                credentials: 'same-origin'
+            }).then(function () {
+                var article = document.querySelector('article[data-id="' + itemId + '"]');
+                if (article) {
+                    article.classList.remove('read');
+                    article.classList.add('unread');
+                    // Update read indicator in article
+                    var readBtn = article.querySelector('.mark-read');
+                    var unreadBtn = article.querySelector('.mark-unread');
+                    if (readBtn) readBtn.style.display = 'inline-flex';
+                    if (unreadBtn) unreadBtn.style.display = 'none';
+                    // Update title color
+                    var titleLink = article.querySelector('.item-title a');
+                    if (titleLink) {
+                        titleLink.style.color = 'var(--text)';
+                    }
+                }
+                // Reload page to update visibility
+                window.location.reload();
+            });
+            return false;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) {
+                icon.className = html.getAttribute('data-theme') === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-rss"></i> Flux</h2>
+            </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/?filter=all&view={{.ViewMode}}&showRead={{.ShowRead}}"
+                        class="filter-option-link {{if eq .FilterMode "all"}}active{{end}}">
+                        <i class="fas fa-globe"></i> Tous les flux
+                    </a>
+                    <a href="/?filter=included&view={{.ViewMode}}&showRead={{.ShowRead}}"
+                        class="filter-option-link {{if eq .FilterMode "included"}}active{{end}}">
+                        <i class="fas fa-filter"></i> Flux sélectionnés
+                    </a>
+                </div>
+                <div class="feed-list">
+                    <h3>Fusionner les flux :</h3>
+                    {{range .AllFeeds}}
+                    <div class="feed-item {{if .Include}}included{{end}}">
+                        <a href="/feed/{{.ID}}/toggle" class="toggle-icon" title="Activer/Désactiver dans la fusion">
+                            {{if .Include}}
+                            <i class="fas fa-check"></i>
+                            {{else}}
+                            <i class="fas fa-times"></i>
+                            {{end}}
+                        </a>
+                        <a href="/?filter=feed:{{.ID}}&view={{$.ViewMode}}&showRead={{$.ShowRead}}"
+                            class="feed-name {{if eq $.FilterMode (print " feed:" .ID)}}active{{end}}">
+                            {{.Title}}
+                        </a>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/add-feed" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Ajouter un flux
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
+
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <h2>
+                        {{if eq .FilterMode "all"}}
+                        <i class="fas fa-globe"></i>
+                        {{else if eq .FilterMode "included"}}
+                        <i class="fas fa-filter"></i>
+                        {{else}}
+                        <i class="fas fa-rss"></i>
+                        {{end}}
+                        Articles ({{.Count}})
+                    </h2>
+                </div>
+                <div class="toolbar-right">
+                    <div class="view-toggle">
+                        <a href="/?view=compact&filter={{.FilterMode}}&showRead={{.ShowRead}}"
+                            class="btn {{if eq .ViewMode "compact"}}active{{end}}" title="Vue condensée">
+                            <i class="fas fa-list"></i>
+                        </a>
+                        <a href="/?view=full&filter={{.FilterMode}}&showRead={{.ShowRead}}"
+                            class="btn {{if eq .ViewMode "full"}}active{{end}}" title="Vue étendue">
+                            <i class="fas fa-align-left"></i>
+                        </a>
+                    </div>
+                    <a href="/toggle-read?showRead={{if .ShowRead}}false{{else}}true{{end}}&view={{.ViewMode}}&filter={{.FilterMode}}"
+                        class="btn {{if .ShowRead}}active{{end}}" title="Afficher/Masquer les articles lus">
+                        <i class="fas fa-eye{{if not .ShowRead}}-slash{{end}}"></i>
+                    </a>
+                    <a href="/feeds" class="btn" title="Gérer les flux">
+                        <i class="fas fa-cog"></i>
+                    </a>
+                    <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                        <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-wrapper">
+                {{if .Items}}
+                <div class="items-container view-{{.ViewMode}}">
+                    {{range .Items}}
+                    <article data-id="{{.ID}}" class="item-card {{if .Read}}read{{else}}unread{{end}}">
+                        <div class="item-header-container">
+                            {{if .ImageURL}}
+                            <div class="item-thumbnail">
+                                <img src="{{.ImageURL}}" alt="" loading="lazy" onerror="this.style.display='none'">
+                            </div>
+                            {{end}}
+                            <div class="item-header-text">
+                                <div class="item-header">
+                                    <span class="feed-title">{{.FeedTitle}}</span>
+                                    <span class="item-date">{{.PublishedAt.Format "2 Jan 2006 15:04"}}</span>
+                                </div>
+                                <h2 class="item-title">
+                                    <a href="{{.Link}}" target="_blank" rel="noopener noreferrer"
+                                        onclick="return markAsRead({{.ID}}, event);">
+                                        {{.Title}}
+                                    </a>
+                                </h2>
+                                {{if eq $.ViewMode "full"}}
+                                {{if .Description}}
+                                <div class="item-description">{{.Description}}</div>
+                                {{end}}
+                                {{end}}
+                                <div class="item-actions">
+                                    <a href="{{.Link}}" target="_blank" rel="noopener noreferrer"
+                                        onclick="return markAsRead({{.ID}}, event);" class="item-action">
+                                        <i class="fas fa-external-link-alt"></i> Lire
+                                    </a>
+                                    {{if .Read}}
+                                    <a href="#" onclick="return markAsUnread({{.ID}}, event);"
+                                        class="item-action mark-unread" title="Marquer comme non lu">
+                                        <i class="fas fa-undo"></i>
+                                    </a>
+                                    {{else}}
+                                    <a href="#" onclick="return markAsRead({{.ID}}, event);"
+                                        class="item-action mark-read" title="Marquer comme lu">
+                                        <i class="fas fa-check"></i>
+                                    </a>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                    {{end}}
+                </div>
+
+                <nav class="pagination">
+                    {{if .HasNewer}}
+                    <a
+                        href="/?view={{.ViewMode}}&filter={{.FilterMode}}&showRead={{.ShowRead}}&limit={{.Limit}}&offset={{.PrevOffset}}">
+                        <i class="fas fa-chevron-left"></i> Plus récents
+                    </a>
+                    {{end}}
+                    {{if .HasOlder}}
+                    <a
+                        href="/?view={{.ViewMode}}&filter={{.FilterMode}}&showRead={{.ShowRead}}&limit={{.Limit}}&offset={{.NextOffset}}">
+                        Plus anciens <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {{end}}
+                </nav>
+                {{else}}
+                <div class="empty-state">
+                    <h2><i class="fas fa-envelope-open-text"></i> Aucun article pour l'instant</h2>
+                    <p>Ajoutez votre premier flux RSS pour commencer !</p>
+                    <a href="/add-feed" class="btn btn-primary mt-2">
+                        <i class="fas fa-plus"></i> Ajouter un flux
+                    </a>
+                </div>
+                {{end}}
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

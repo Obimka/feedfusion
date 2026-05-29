@@ -1,0 +1,25 @@
+# Configuration des flux RSS préconfigurés
+# Format :
+#   feeds:
+#     - url: "URL_DU_FLUX"
+#       title: "Titre optionnel"  # Si vide, le titre du flux sera utilisé
+#       include: true/false       # Inclure dans la fusion par défaut
+
+feeds:
+  # === Actualités Françaises ===
+  - url: "https://www.lemonde.fr/rss/une.xml"
+    title: "Le Monde"
+    include: true
+
+  - url: "https://www.lefigaro.fr/rss/figaro_actualites.xml"
+    title: "Le Figaro"
+    include: true
+
+  # === Technologie ===
+  - url: "https://www.clubic.com/flux/rss/actualites.rss"
+    title: "Clubic"
+    include: true
+
+  - url: "https://www.reddit.com/r/france.rss"
+    title: "Reddit France"
+    include: true

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gérer les flux - FeedFusion</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) {
+                icon.className = html.getAttribute('data-theme') === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-rss"></i> Mes Flux</h2>
+            </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/" class="filter-option-link">
+                        <i class="fas fa-arrow-left"></i> Retour aux articles
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/add-feed" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Ajouter un flux
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2><i class="fas fa-cog"></i> Gestion des flux ({{len .}})</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <a href="/add-feed" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Ajouter un flux
+                        </a>
+                        <a href="/" class="btn" title="Retour aux articles">
+                            <i class="fas fa-arrow-left"></i>
+                        </a>
+                        <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {{if .}}
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;"><i class="fas fa-rss"></i> Titre</th>
+                                <th style="width: 40%;"><i class="fas fa-link"></i> URL</th>
+                                <th><i class="fas fa-tag"></i> Type</th>
+                                <th><i class="fas fa-check"></i> Fusion</th>
+                                <th><i class="fas fa-clock"></i> Dernière MAJ</th>
+                                <th style="width: 100px;"><i class="fas fa-cogs"></i> Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .}}
+                            <tr>
+                                <td><strong>{{.Title}}</strong></td>
+                                <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer"
+                                        title="Ouvrir le flux">{{.URL}}</a></td>
+                                <td><span style="font-size: 0.875rem;">{{.Type}}</span></td>
+                                <td style="text-align: center;">
+                                    {{if .Include}}
+                                    <span style="color: var(--success);"><i class="fas fa-check"></i></span>
+                                    {{else}}
+                                    <span style="color: var(--text-secondary);"><i class="fas fa-times"></i></span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{if .LastFetch}}
+                                    {{.LastFetch.Format "02 Jan 15:04"}}
+                                    {{else}}
+                                    <span style="color: var(--text-secondary);">Jamais</span>
+                                    {{end}}
+                                </td>
+                                <td class="action-buttons">
+                                    <a href="/feed/{{.ID}}/toggle"
+                                        class="btn btn-small {{if .Include}}btn-toggle-on{{else}}btn-toggle-off{{end}}"
+                                        title="Activer/Désactiver">
+                                        <i class="fas {{if .Include}}fa-eye-slash{{else}}fa-eye{{end}}"></i>
+                                    </a>
+                                    <a href="/feed/{{.ID}}/edit" class="btn btn-small btn-secondary" title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="/feed/{{.ID}}/delete" class="btn btn-small btn-danger" title="Supprimer"
+                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce flux ?');">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="empty-state">
+                    <h2><i class="fas fa-envelope-open-text"></i> Aucun flux configuré</h2>
+                    <p>Ajoutez votre premier flux pour commencer à agréger du contenu !</p>
+                    <a href="/add-feed" class="btn btn-primary mt-2">
+                        <i class="fas fa-plus"></i> Ajouter un flux
+                    </a>
+                </div>
+                {{end}}
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

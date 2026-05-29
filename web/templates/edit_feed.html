@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifier un flux - FeedFusion</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) {
+                icon.className = html.getAttribute('data-theme') === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-rss"></i> Mes Flux</h2>
+            </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/feeds" class="filter-option-link">
+                        <i class="fas fa-arrow-left"></i> Retour
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/add-feed" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Ajouter un flux
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2><i class="fas fa-edit"></i> Modifier un flux</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <form action="/feed/{{.Feed.ID}}/edit" method="POST" class="form-group">
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                            <i class="fas fa-link"></i> URL du flux *
+                        </label>
+                        <input type="url" name="url" class="form-input" value="{{.Feed.URL}}"
+                            placeholder="https://exemple.com/feed.xml" required>
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                            <i class="fas fa-rss"></i> Titre
+                        </label>
+                        <input type="text" name="title" class="form-input" value="{{.Feed.Title}}"
+                            placeholder="Mon flux RSS">
+                    </div>
+
+                    <div class="form-row" style="margin-bottom: 1.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="include" {{if .Feed.Include}}checked{{end}}>
+                            <span><i class="fas fa-check"></i> Inclure dans la fusion</span>
+                        </label>
+                    </div>
+
+                    <div class="form-row">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Sauvegarder
+                        </button>
+                        <a href="/feeds" class="btn" style="margin-left: 0.5rem;">
+                            <i class="fas fa-times"></i> Annuler
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>
