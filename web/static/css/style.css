@@ -627,12 +627,20 @@ h6 {
     width: 100%;
 }
 
-.view-dense .item-thumbnail {
+ .view-dense .item-header-container > .item-thumbnail {
+    display: none;
+}
+
+.view-dense .item-thumbnail,
+.view-dense .dense-thumbnail {
     width: 100%;
     height: 380px;
     max-height: 380px;
-    order: -1;
     margin-bottom: 0.75rem;
+}
+
+.view-dense .dense-thumbnail {
+    order: 1;
 }
 
 .view-dense .item-thumbnail img {
