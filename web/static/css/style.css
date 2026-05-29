@@ -589,10 +589,47 @@ h6 {
     display: none;
 }
 
-/* Dense view - larger images and full content */
+/* Dense view - 2 columns layout, larger images */
+.view-dense .content-wrapper {
+    padding: 0 1rem 2rem;
+}
+
+.view-dense .items-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.view-dense .item-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.view-dense .item-header-container {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
 .view-dense .item-thumbnail {
-    width: 120px;
-    height: 160px;
+    width: 100%;
+    height: 380px;
+    max-height: 380px;
+    order: -1;
+    margin-bottom: 0.75rem;
+}
+
+.view-dense .item-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}
+
+.view-dense .item-header-text {
+    width: 100%;
 }
 
 .view-dense .item-content {
