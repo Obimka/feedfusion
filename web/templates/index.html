@@ -39,6 +39,41 @@
             return false;
         }
 
+        function openAndMarkRead(itemId, url, event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            // Decode URL (it comes url-encoded from template)
+            var decodedUrl = decodeURIComponent(url);
+
+            // Mark as read
+            fetch('/item/' + itemId + '/read', {
+                method: 'GET',
+                credentials: 'same-origin'
+            }).then(function () {
+                var article = document.querySelector('article[data-id="' + itemId + '"]');
+                if (article) {
+                    article.classList.remove('unread');
+                    article.classList.add('read');
+                    // Update read indicator
+                    var readBtn = article.querySelector('.mark-read');
+                    var unreadBtn = article.querySelector('.mark-unread');
+                    if (readBtn) readBtn.style.display = 'none';
+                    if (unreadBtn) unreadBtn.style.display = 'inline-flex';
+                    // Update title color
+                    var titleLink = article.querySelector('.item-title a');
+                    if (titleLink) {
+                        titleLink.style.color = 'var(--text-secondary)';
+                    }
+                }
+            });
+
+            // Open URL in new tab
+            window.open(decodedUrl, '_blank', 'noopener,noreferrer');
+            return false;
+        }
+
         function markAsUnread(itemId, event) {
             if (event) {
                 event.preventDefault();
@@ -87,10 +122,39 @@
             }
         }
 
+        function toggleSidebar() {
+            const appContainer = document.querySelector('.app-container');
+            const btn = document.querySelector('.sidebar-toggle i');
+
+            appContainer.classList.toggle('sidebar-collapsed');
+
+            // Change icon: fa-bars (closed) <-> chevron-left (open)
+            if (appContainer.classList.contains('sidebar-collapsed')) {
+                btn.className = 'fas fa-bars';
+            } else {
+                btn.className = 'fas fa-chevron-left';
+            }
+
+            // Save state to localStorage
+            const isCollapsed = appContainer.classList.contains('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             updateThemeIcon();
+
+            // Restore sidebar state
+            const appContainer = document.querySelector('.app-container');
+            const btn = document.querySelector('.sidebar-toggle i');
+            const savedSidebarState = localStorage.getItem('sidebarCollapsed');
+            if (savedSidebarState === 'true') {
+                appContainer.classList.add('sidebar-collapsed');
+                btn.className = 'fas fa-bars';
+            } else {
+                btn.className = 'fas fa-chevron-left';
+            }
         });
     </script>
 </head>
@@ -140,6 +204,9 @@
 
         <main class="main-content">
             <header class="header">
+                <button onclick="toggleSidebar()" class="sidebar-toggle btn" title="Masquer/afficher le menu">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
                 <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
             </header>
 
@@ -159,19 +226,19 @@
                 <div class="toolbar-right">
                     <div class="view-toggle">
                         <a href="/?view=compact&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "compact"}}active{{end}}" title="Vue condensée">
+                            class="btn {{if eq .ViewMode " compact"}}active{{end}}" title="Vue condensée">
                             <i class="fas fa-list"></i>
                         </a>
                         <a href="/?view=full&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "full"}}active{{end}}" title="Vue étendue">
+                            class="btn {{if eq .ViewMode " full"}}active{{end}}" title="Vue étendue">
                             <i class="fas fa-align-left"></i>
                         </a>
                         <a href="/?view=dense&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "dense"}}active{{end}}" title="Vue dense">
+                            class="btn {{if eq .ViewMode " dense"}}active{{end}}" title="Vue dense">
                             <i class="fas fa-newspaper"></i>
                         </a>
                     </div>
-                    <a href="/toggle-read?showRead={{if .ShowRead}}false{{else}}true{{end}}&view={{.ViewMode}}&filter={{.FilterMode}}"
+                    <a href="/toggle-read?showRead={{if not .ShowRead}}true{{else}}false{{end}}&view={{.ViewMode}}&filter={{.FilterMode}}"
                         class="btn {{if .ShowRead}}active{{end}}" title="Afficher/Masquer les articles lus">
                         <i class="fas fa-eye{{if not .ShowRead}}-slash{{end}}"></i>
                     </a>
@@ -205,8 +272,8 @@
                                     <span class="item-date">{{.PublishedAt.Format "2 Jan 2006 15:04"}}</span>
                                 </div>
                                 <h2 class="item-title">
-                                    <a href="{{.Link}}" target="_blank" rel="noopener noreferrer"
-                                        onclick="return markAsRead({{.ID}}, event);">
+                                    <a href="/item/{{.ID}}/read-and-redirect?url={{.Link | urlquery}}"
+                                        onclick="return openAndMarkRead({{.ID}}, '{{.Link | urlquery}}', event);">
                                         {{.Title}}
                                     </a>
                                 </h2>
@@ -222,8 +289,9 @@
                                 {{end}}
                                 {{end}}
                                 <div class="item-actions">
-                                    <a href="{{.Link}}" target="_blank" rel="noopener noreferrer"
-                                        onclick="return markAsRead({{.ID}}, event);" class="item-action">
+                                    <a href="/item/{{.ID}}/read-and-redirect?url={{.Link | urlquery}}"
+                                        onclick="return openAndMarkRead({{.ID}}, '{{.Link | urlquery}}', event);"
+                                        class="item-action">
                                         <i class="fas fa-external-link-alt"></i> Lire
                                     </a>
                                     {{if .Read}}

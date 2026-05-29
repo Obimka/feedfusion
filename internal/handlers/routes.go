@@ -250,17 +250,8 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
 	// Toggle show read
 	r.HandleFunc("/toggle-read", func(w http.ResponseWriter, r *http.Request) {
-		// Get current query params
 		query := r.URL.Query()
-
-		// Toggle showRead
-		currentShowRead := query.Get("showRead")
-		if currentShowRead == "true" {
-			query.Set("showRead", "false")
-		} else {
-			query.Set("showRead", "true")
-		}
-
+		// The button already sends the toggled value, just use it
 		http.Redirect(w, r, "/?"+query.Encode(), http.StatusSeeOther)
 	})
 
