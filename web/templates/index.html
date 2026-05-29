@@ -168,11 +168,11 @@
             <div class="sidebar-form">
                 <div class="filter-options">
                     <a href="/?filter=all&view={{.ViewMode}}&showRead={{.ShowRead}}"
-                        class="filter-option-link {{if eq .FilterMode "all"}}active{{end}}">
+                        class="filter-option-link {{if eq .FilterMode " all"}}active{{end}}">
                         <i class="fas fa-globe"></i> Tous les flux
                     </a>
                     <a href="/?filter=included&view={{.ViewMode}}&showRead={{.ShowRead}}"
-                        class="filter-option-link {{if eq .FilterMode "included"}}active{{end}}">
+                        class="filter-option-link {{if eq .FilterMode " included"}}active{{end}}">
                         <i class="fas fa-filter"></i> Flux sélectionnés
                     </a>
                 </div>
@@ -226,18 +226,21 @@
                 <div class="toolbar-right">
                     <div class="view-toggle">
                         <a href="/?view=compact&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "compact"}}active{{end}}" title="Vue condensée">
+                            class="btn {{if eq .ViewMode " compact"}}active{{end}}" title="Vue condensée">
                             <i class="fas fa-list"></i>
                         </a>
                         <a href="/?view=full&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "full"}}active{{end}}" title="Vue étendue">
+                            class="btn {{if eq .ViewMode " full"}}active{{end}}" title="Vue étendue">
                             <i class="fas fa-align-left"></i>
                         </a>
                         <a href="/?view=dense&filter={{.FilterMode}}&showRead={{.ShowRead}}"
-                            class="btn {{if eq .ViewMode "dense"}}active{{end}}" title="Vue dense">
+                            class="btn {{if eq .ViewMode " dense"}}active{{end}}" title="Vue dense">
                             <i class="fas fa-newspaper"></i>
                         </a>
                     </div>
+                    <button onclick="window.location.reload()" class="btn" title="Rafraîchir">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                     <a href="/toggle-read?showRead={{if not .ShowRead}}true{{else}}false{{end}}&view={{.ViewMode}}&filter={{.FilterMode}}"
                         class="btn {{if .ShowRead}}active{{end}}" title="Afficher/Masquer les articles lus">
                         <i class="fas fa-eye{{if not .ShowRead}}-slash{{end}}"></i>
