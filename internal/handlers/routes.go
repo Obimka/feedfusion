@@ -22,6 +22,9 @@ var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"isReddit": func(s string) bool {
 		return strings.Contains(strings.ToLower(s), "reddit.com")
 	},
+	"safeHTML": func(s string) template.HTML {
+		return template.HTML(s)
+	},
 }).ParseGlob("web/templates/*.html"))
 
 func RegisterRoutes(r *mux.Router, db *gorm.DB) {
