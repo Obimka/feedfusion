@@ -576,8 +576,16 @@ h6 {
     font-size: 0.875rem;
 }
 
-/* Compact view - hide description */
+/* Compact view - hide description, actions, and images */
 .view-compact .item-description {
+    display: none;
+}
+
+.view-compact .item-actions {
+    display: none;
+}
+
+.view-compact .item-thumbnail {
     display: none;
 }
 
@@ -833,6 +841,14 @@ h6 {
 
 .table a {
     color: var(--primary);
+}
+
+[data-theme="dark"] .table a {
+    color: var(--text);
+}
+
+[data-theme="dark"] .table a:hover {
+    color: var(--primary-light);
 }
 
 .table a:hover {

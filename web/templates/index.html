@@ -193,7 +193,11 @@
                             {{end}}
                             <div class="item-header-text">
                                 <div class="item-header">
-                                    <span class="feed-title">{{.FeedTitle}}</span>
+                                    <span class="feed-title">
+                                        {{if isReddit .Link}}<i class="fab fa-reddit-alien"
+                                            style="color: #ff4500; font-size: 0.75rem; margin-right: 0.25rem;"></i>{{end}}
+                                        {{.FeedTitle}}
+                                    </span>
                                     <span class="item-date">{{.PublishedAt.Format "2 Jan 2006 15:04"}}</span>
                                 </div>
                                 <h2 class="item-title">

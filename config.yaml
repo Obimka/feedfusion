@@ -20,6 +20,6 @@ feeds:
     title: "Clubic"
     include: true
 
-  - url: "https://www.reddit.com/r/france.rss"
-    title: "Reddit France"
+  - url: "https://www.reddit.com/r/assettocorsa.rss"
+    title: "Reddit Assetto Corsa"
     include: true

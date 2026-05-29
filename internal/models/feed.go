@@ -12,6 +12,11 @@ type Feed struct {
 	Include   bool   `gorm:"default:true"` // Include in fusion
 	LastFetch time.Time
 	Error     string
+	// WebSub fields
+	HubURL     string // URL of the WebSub hub
+	TopicURL   string // Topic URL for this feed
+	Subscribed bool   `gorm:"default:false"` // Whether we're subscribed to WebSub
+	Secret     string // Secret for WebSub verification
 }
 
 type Item struct {

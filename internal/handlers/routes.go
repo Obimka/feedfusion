@@ -7,6 +7,7 @@ import (
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
+	"rss-aggregator/internal/websub"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,9 @@ import (
 var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"urlquery": func(s string) string {
 		return url.QueryEscape(s)
+	},
+	"isReddit": func(s string) bool {
+		return strings.Contains(strings.ToLower(s), "reddit.com")
 	},
 }).ParseGlob("web/templates/*.html"))
 
@@ -260,5 +264,54 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	r.HandleFunc("/feeds", func(w http.ResponseWriter, r *http.Request) {
 		feeds, _ := storage.GetAllFeeds(db)
 		tmpl.ExecuteTemplate(w, "feeds.html", feeds)
+	})
+
+	// WebSub callback endpoint
+	r.HandleFunc("/websub/callback", websub.HandleCallback(db)).Methods("GET", "POST")
+
+	// WebSub subscription management
+	r.HandleFunc("/websub/subscribe/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseUint(vars["id"], 10, 32)
+		feed, _ := storage.GetFeedByID(db, uint(id))
+		if feed == nil {
+			http.Error(w, "Feed not found", http.StatusNotFound)
+			return
+		}
+
+		// Get the callback base URL from the host
+		callbackBaseURL := "http://" + r.Host
+		if r.TLS != nil {
+			callbackBaseURL = "https://" + r.Host
+		}
+
+		if err := websub.SubscribeFeedToWebSub(db, feed, callbackBaseURL); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/feeds", http.StatusSeeOther)
+	})
+
+	r.HandleFunc("/websub/unsubscribe/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseUint(vars["id"], 10, 32)
+		feed, _ := storage.GetFeedByID(db, uint(id))
+		if feed == nil {
+			http.Error(w, "Feed not found", http.StatusNotFound)
+			return
+		}
+
+		callbackBaseURL := "http://" + r.Host
+		if r.TLS != nil {
+			callbackBaseURL = "https://" + r.Host
+		}
+
+		if err := websub.UnsubscribeFeedFromWebSub(db, feed, callbackBaseURL); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/feeds", http.StatusSeeOther)
 	})
 }

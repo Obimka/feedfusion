@@ -28,7 +28,8 @@ func fetchAllFeeds(db *gorm.DB) {
 	var feeds []models.Feed
 	db.Find(&feeds)
 
-	for _, feed := range feeds {
+	for i := range feeds {
+		feed := &feeds[i]
 		if !feed.IsActive {
 			continue
 		}
@@ -41,10 +42,19 @@ func fetchAllFeeds(db *gorm.DB) {
 			continue
 		}
 
+		// Update WebSub info from parsed feed
+		if parsedFeed.HubURL != "" {
+			feed.HubURL = parsedFeed.HubURL
+			feed.TopicURL = parsedFeed.TopicURL
+			if feed.Secret == "" {
+				feed.Secret = parsedFeed.Secret
+			}
+		}
+
 		feed.Error = ""
 		feed.LastFetch = time.Now()
 		db.Save(&feed)
 		storage.AddFeed(db, parsedFeed, items)
-		log.Printf("Fetched %d items from %s", len(items), feed.URL)
+		log.Printf("Fetched %d items from %s (Hub: %v)", len(items), feed.URL, parsedFeed.HubURL != "")
 	}
 }

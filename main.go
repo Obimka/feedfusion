@@ -8,6 +8,7 @@ import (
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
+	"rss-aggregator/internal/websub"
 	"rss-aggregator/internal/worker"
 
 	"github.com/gorilla/mux"
@@ -21,8 +22,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Auto-migrate with new WebSub fields
+	err = db.AutoMigrate(&models.Feed{}, &models.Item{})
+	if err != nil {
+		log.Printf("Warning: auto-migration failed: %v", err)
+	}
+
 	// Load config and add preconfigured feeds
 	loadConfigFeeds(db)
+
+	// Start WebSub manager
+	callbackBaseURL := "http://localhost:8080"
+	go websub.StartWebSubManager(db, callbackBaseURL)
 
 	// Start worker (fetch feeds every 30min)
 	go worker.StartFeedFetcher(db, 30)
@@ -36,6 +47,7 @@ func main() {
 	http.Handle("/", r)
 
 	log.Println("Server started on :8080")
+	log.Println("WebSub support enabled - feeds will receive push notifications when available")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
