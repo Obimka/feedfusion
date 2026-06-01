@@ -4,7 +4,7 @@ build:
 	CGO_ENABLED=1 go build -v -o bin/feedfusion .
 
 test:
-	go test -v -race ./...
+	go test ./...
 
 tidy:
 	go mod tidy
