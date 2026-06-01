@@ -46,9 +46,9 @@ func main() {
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	http.Handle("/", r)
 
-	log.Println("Server started on :8080")
+	log.Println("Server started on :8081")
 	log.Println("WebSub support enabled - feeds will receive push notifications when available")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
 func loadConfigFeeds(db *gorm.DB) {

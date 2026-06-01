@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
+	"rss-aggregator/internal/config"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
@@ -24,6 +26,10 @@ var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	},
 	"safeHTML": func(s string) template.HTML {
 		return template.HTML(s)
+	},
+	"toJSON": func(v interface{}) template.JS {
+		b, _ := json.Marshal(v)
+		return template.JS(b)
 	},
 }).ParseGlob("web/templates/*.html"))
 
@@ -108,34 +114,62 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 			prevOffset = 0
 		}
 
+		// Load weather cities from config and convert to map for template
+		cfg, _ := config.LoadConfig("config.yaml")
+		weatherCities := cfg.WeatherCities
+		if len(weatherCities) == 0 {
+			// Default cities if config is empty
+			weatherCities = []config.WeatherCity{
+				{Name: "Paris", Lat: 48.8566, Lon: 2.3522, Timezone: "Europe/Paris"},
+				{Name: "Lyon", Lat: 45.7640, Lon: 4.8357, Timezone: "Europe/Paris"},
+				{Name: "Marseille", Lat: 43.2965, Lon: 5.3698, Timezone: "Europe/Paris"},
+				{Name: "Toulouse", Lat: 43.6047, Lon: 1.4442, Timezone: "Europe/Paris"},
+				{Name: "Bordeaux", Lat: 44.8378, Lon: -0.5792, Timezone: "Europe/Paris"},
+				{Name: "Lille", Lat: 50.6292, Lon: 3.0573, Timezone: "Europe/Paris"},
+				{Name: "Nantes", Lat: 47.2184, Lon: -1.5536, Timezone: "Europe/Paris"},
+				{Name: "Nice", Lat: 43.7102, Lon: 7.2620, Timezone: "Europe/Paris"},
+				{Name: "Dijon", Lat: 47.3166, Lon: 5.0166, Timezone: "Europe/Paris"},
+			}
+		}
+
+		// Convert to map for easier JavaScript access
+		weatherCityMap := make(map[string]config.WeatherCity)
+		for _, city := range weatherCities {
+			weatherCityMap[city.Name] = city
+		}
+
 		tmpl.ExecuteTemplate(w, "index.html", struct {
-			Items       []models.Item
-			AllFeeds    []models.Feed
-			IncludedIDs []uint
-			Count       int64
-			Limit       int
-			Offset      int
-			HasOlder    bool
-			HasNewer    bool
-			NextOffset  int
-			PrevOffset  int
-			FilterMode  string
-			ViewMode    string
-			ShowRead    bool
+			Items          []models.Item
+			AllFeeds       []models.Feed
+			IncludedIDs    []uint
+			Count          int64
+			Limit          int
+			Offset         int
+			HasOlder       bool
+			HasNewer       bool
+			NextOffset     int
+			PrevOffset     int
+			FilterMode     string
+			ViewMode       string
+			ShowRead       bool
+			WeatherCities  []config.WeatherCity
+			WeatherCityMap map[string]config.WeatherCity
 		}{
-			Items:       items,
-			AllFeeds:    allFeeds,
-			IncludedIDs: includedIDs,
-			Count:       count,
-			Limit:       limit,
-			Offset:      offset,
-			HasOlder:    hasOlder,
-			HasNewer:    hasNewer,
-			NextOffset:  nextOffset,
-			PrevOffset:  prevOffset,
-			FilterMode:  filterMode,
-			ViewMode:    viewMode,
-			ShowRead:    showRead,
+			Items:          items,
+			AllFeeds:       allFeeds,
+			IncludedIDs:    includedIDs,
+			Count:          count,
+			Limit:          limit,
+			Offset:         offset,
+			HasOlder:       hasOlder,
+			HasNewer:       hasNewer,
+			NextOffset:     nextOffset,
+			PrevOffset:     prevOffset,
+			FilterMode:     filterMode,
+			ViewMode:       viewMode,
+			ShowRead:       showRead,
+			WeatherCities:  weatherCities,
+			WeatherCityMap: weatherCityMap,
 		})
 	})
 

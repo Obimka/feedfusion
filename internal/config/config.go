@@ -13,8 +13,16 @@ type FeedConfig struct {
 	Include bool   `yaml:"include"`
 }
 
+type WeatherCity struct {
+	Name     string  `yaml:"name"`
+	Lat      float64 `yaml:"lat"`
+	Lon      float64 `yaml:"lon"`
+	Timezone string  `yaml:"timezone"`
+}
+
 type Config struct {
-	Feeds []FeedConfig `yaml:"feeds"`
+	Feeds         []FeedConfig  `yaml:"feeds"`
+	WeatherCities []WeatherCity `yaml:"weather_cities"`
 }
 
 func LoadConfig(path string) (*Config, error) {
