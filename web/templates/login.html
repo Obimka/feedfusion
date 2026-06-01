@@ -11,8 +11,7 @@
     <div class="login-container">
         <div class="login-card">
             <h1>FeedFusion</h1>
-            <p class="subtitle">Agrégateur RSS avec WebSub</p>
-            
+
             <form id="loginForm" class="login-form">
                 <div class="form-group">
                     <label for="username">Utilisateur</label>
@@ -32,12 +31,12 @@
             </form>
         </div>
     </div>
-    
+
     <script>
         function togglePasswordVisibility() {
             const passwordInput = document.getElementById('password');
             const icon = document.getElementById('passwordIcon');
-            
+
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -54,9 +53,9 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorMessage = document.getElementById('errorMessage');
-            
+
             errorMessage.textContent = '';
-            
+
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
@@ -65,13 +64,13 @@
                     },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.text();
                     errorMessage.textContent = error || 'Identifiants invalides';
                     return;
                 }
-                
+
                 const data = await response.json();
                 // Stockage du token (le cookie est déjà défini par le serveur)
                 // Redirection vers la page d'accueil
