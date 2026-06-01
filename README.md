@@ -14,6 +14,8 @@
 - **YAML Configuration**: Easy configuration of feeds and weather cities
 - **Feed Filtering**: Include/exclude specific feeds from fusion
 - **Read/Unread Tracking**: Mark items as read
+- **JWT Authentication**: Secure API access with JSON Web Tokens
+- **User Management**: Login with predefined users
 
 ## Installation
 
@@ -140,6 +142,67 @@ go test ./...
 make watch
 ```
 (Requires [modd](https://github.com/canthefason/go-modd) for file watching)
+
+## Authentication
+
+FeedFusion uses JWT (JSON Web Tokens) for secure authentication.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | random | Secret key for JWT signing (REQUIRED in production) |
+| `ADMIN_USERNAME` | admin | Default admin username |
+| `ADMIN_PASSWORD` | admin123 | Default admin password (CHANGE THIS!) |
+
+**IMPORTANT**: On first run, if no users exist, a default admin user is created. If `ADMIN_USERNAME` and `ADMIN_PASSWORD` are not set, the credentials will be **admin/admin123**. Change this immediately!
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/login` | Login and get JWT token |
+| POST | `/api/refresh` | Refresh access token with refresh token |
+| POST | `/api/logout` | Logout (clears cookie) |
+
+### Login
+
+```bash
+curl -X POST http://localhost:8081/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
+```
+
+Response:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "username": "admin",
+  "is_admin": "true"
+}
+```
+
+### Use the token
+
+Include the token in the Authorization header:
+
+```bash
+curl http://localhost:8081/api/feeds \
+  -H "Authorization: Bearer <your-token>"
+```
+
+Or use the cookie (set automatically on login for web interface).
+
+### Refresh token
+
+When your access token expires, use the refresh token to get a new one:
+
+```bash
+curl -X POST http://localhost:8081/api/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "<your-refresh-token>"}'
+```
 
 ## Configuration via Environment Variables
 

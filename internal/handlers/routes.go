@@ -34,7 +34,28 @@ var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 }).ParseGlob("web/templates/*.html"))
 
 func RegisterRoutes(r *mux.Router, db *gorm.DB) {
+	// Login page - public access
+	r.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		// If already logged in, redirect to home
+		if _, err := r.Cookie("token"); err == nil {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		tmpl.ExecuteTemplate(w, "login.html", nil)
+	})
+
+	// Logout page - public access
+	r.HandleFunc("/logged-out", func(w http.ResponseWriter, r *http.Request) {
+		tmpl.ExecuteTemplate(w, "logout.html", nil)
+	})
+
+	// Protected routes
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if user is authenticated
+		if _, err := r.Cookie("token"); err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		if limit == 0 {
 			limit = 20

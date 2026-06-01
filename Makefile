@@ -14,3 +14,6 @@ watch:
 
 run:
 	./bin/feedfusion
+
+stop:
+	pkill -f feedfusion || true
