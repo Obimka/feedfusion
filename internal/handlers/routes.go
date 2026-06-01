@@ -115,7 +115,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 		}
 
 		// Load weather cities from config and convert to map for template
-		cfg, _ := config.LoadConfig("config.yaml")
+		cfg, _ := config.LoadConfig("data/config.yaml")
 		weatherCities := cfg.WeatherCities
 		if len(weatherCities) == 0 {
 			// Default cities if config is empty

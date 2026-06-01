@@ -52,7 +52,7 @@ func main() {
 }
 
 func loadConfigFeeds(db *gorm.DB) {
-	cfg, err := config.LoadConfig("config.yaml")
+	cfg, err := config.LoadConfig("data/config.yaml")
 	if err != nil {
 		log.Printf("Warning: could not load config: %v", err)
 		return
@@ -62,7 +62,7 @@ func loadConfigFeeds(db *gorm.DB) {
 		return
 	}
 
-	log.Printf("Loading %d preconfigured feeds from config.yaml", len(cfg.Feeds))
+	log.Printf("Loading %d preconfigured feeds from data/config.yaml", len(cfg.Feeds))
 
 	for _, feedCfg := range cfg.Feeds {
 		// Check if feed already exists
