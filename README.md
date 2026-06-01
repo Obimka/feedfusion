@@ -57,9 +57,11 @@ The binary will be created in the `bin/` directory.
 
 ## Configuration
 
-Create a `data/config.yaml` file to configure default feeds and weather cities:
+Create a `data/config.yaml` file to configure default feeds, weather cities, and server settings:
 
 ```yaml
+server_port: 8081
+
 feeds:
   - url: https://example.com/feed.xml
     title: Example Feed

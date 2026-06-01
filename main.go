@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -68,10 +69,18 @@ func main() {
 
 	http.Handle("/", r)
 
-	log.Println("Server started on :8081")
+	// Determine server port: config > env > default
+	port := "8081"
+	if cfg, err := config.LoadConfig("data/config.yaml"); err == nil && cfg.ServerPort > 0 {
+		port = fmt.Sprintf("%d", cfg.ServerPort)
+	} else if p := os.Getenv("PORT"); p != "" {
+		port = p
+	}
+
+	log.Printf("Server started on :%s", port)
 	log.Println("WebSub support enabled - feeds will receive push notifications when available")
 	log.Println("Authentication enabled - use /api/login endpoint")
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func loadConfigFeeds(db *gorm.DB) {

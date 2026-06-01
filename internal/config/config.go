@@ -21,6 +21,7 @@ type WeatherCity struct {
 }
 
 type Config struct {
+	ServerPort    int            `yaml:"server_port"`
 	Feeds         []FeedConfig  `yaml:"feeds"`
 	WeatherCities []WeatherCity `yaml:"weather_cities"`
 }
