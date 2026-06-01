@@ -300,19 +300,7 @@
     </script>
 </head>
 
-<body>
-    <nav class="top-nav">
-        <div class="nav-left">
-            <a href="/" class="nav-brand"><i class="fas fa-rss"></i> FeedFusion</a>
-        </div>
-        <div class="nav-right">
-            <a href="/login" class="nav-link logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();">
-                <i class="fas fa-sign-out-alt"></i> Déconnexion
-            </a>
-            <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
-        </div>
-    </nav>
-    <div class="app-container" style="margin-top: 60px;">
+    <div class="app-container">
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2><i class="fas fa-rss"></i> Flux</h2>
@@ -351,6 +339,10 @@
                 <a href="/add-feed" class="btn btn-primary" style="width: 100%;">
                     <i class="fas fa-plus"></i> Ajouter un flux
                 </a>
+                <a href="/login" class="btn btn-secondary logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </a>
+                <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
             </div>
         </aside>
 
