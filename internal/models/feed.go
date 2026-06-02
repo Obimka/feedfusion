@@ -4,7 +4,7 @@ import "time"
 
 type Feed struct {
 	ID        uint   `gorm:"primarykey"`
-	UserID    uint   `gorm:"index;not null"` // Owner of this feed
+	UserID    uint   `gorm:"index;default:1"` // Owner of this feed
 	URL       string `gorm:"unique;not null"`
 	Title     string
 	Link      string

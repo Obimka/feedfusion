@@ -118,9 +118,14 @@ func loadConfigFeeds(db *gorm.DB) {
 
 	// Get admin user ID to assign feeds to
 	var adminUser models.User
-	if err := db.Where("is_admin = ?", true).First(&adminUser).Error; err != nil {
-		log.Printf("Warning: No admin user found, cannot assign preconfigured feeds")
-		return
+	if err := db.Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
+		log.Printf("Warning: No admin user found, cannot assign preconfigured feeds: %v", err)
+		// Try to find any user as fallback
+		if err := db.Order("id ASC").First(&adminUser).Error; err != nil {
+			log.Printf("Warning: No users found at all, cannot assign preconfigured feeds")
+			return
+		}
+		log.Printf("Warning: Using first user (ID: %d, admin: %v) for preconfigured feeds", adminUser.ID, adminUser.IsAdmin)
 	}
 
 	for _, feedCfg := range cfg.Feeds {
@@ -167,16 +172,25 @@ func migrateToMultiUser(db *gorm.DB) {
 	db.Raw("SELECT COUNT(*) FROM pragma_table_info('feeds') WHERE name = 'user_id'").Count(&count)
 	
 	if count == 0 {
-		// Add user_id column with default value 1 (will be assigned to admin)
+		// Add user_id column with default value 1
+		// Using default value allows adding to existing table
 		if err := db.Exec("ALTER TABLE feeds ADD COLUMN user_id INTEGER DEFAULT 1").Error; err != nil {
 			log.Printf("Error adding user_id column: %v", err)
 			return
 		}
 		
-		// Create index on user_id for better performance
-		if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
-			log.Printf("Error creating index: %v", err)
+		// Update existing rows to have user_id = 1 (will be assigned to admin)
+		if err := db.Exec("UPDATE feeds SET user_id = 1 WHERE user_id IS NULL").Error; err != nil {
+			log.Printf("Error updating existing feeds: %v", err)
+			return
 		}
+		
+		log.Println("Successfully added user_id column to feeds table")
+	}
+	
+	// Create index on user_id for better performance
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
+		log.Printf("Error creating index: %v", err)
 	}
 	
 	// Auto-migrate User table
@@ -184,8 +198,7 @@ func migrateToMultiUser(db *gorm.DB) {
 		log.Printf("Warning: User table migration failed: %v", err)
 	}
 	
-	// Assign existing feeds (with user_id=0 or NULL) to admin
-	// We'll do this after admin is created
+	// Assign existing feeds (with user_id=1) to admin - will be done in createFirstAdmin
 }
 
 // createFirstAdmin creates a default admin user if no users exist
