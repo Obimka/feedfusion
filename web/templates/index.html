@@ -30,7 +30,7 @@
         let savedVoiceFR = '5a271406-039d-46fe-835b-fbbb00eaf08d'; // Marie - Neutral (fr_fr)
         let savedVoiceEN = 'c69964a6-ab8b-4f8a-9465-ec0925096ec8'; // Paul - Neutral (en_us)
         let savedModel = 'voxtral-mini-tts-2603';
-        
+
         function loadTTSSettings() {
             const savedSettings = localStorage.getItem('ttsSettings');
             if (savedSettings) {
@@ -45,19 +45,100 @@
                 }
             }
         }
-        
+
         // Load TTS settings on page load
         loadTTSSettings();
+
+        // Variables for playing all articles
+        let isPlayingAll = false;
+        let playAllResolve = null;
+
+        // Stop playing all articles
+        function stopAllTTS() {
+            if (isPlayingAll) {
+                isPlayingAll = false;
+                stopTTS();
+                if (playAllResolve) {
+                    playAllResolve();
+                    playAllResolve = null;
+                }
+                document.getElementById('playAllBtn').style.display = 'inline-block';
+                document.getElementById('stopAllBtn').style.display = 'none';
+            }
+        }
+
+        // Play all articles in sequence with 2s pause between each
+        async function playAllArticlesTTS() {
+            if (isPlayingAll) return;
+
+            isPlayingAll = true;
+            document.getElementById('playAllBtn').style.display = 'none';
+            document.getElementById('stopAllBtn').style.display = 'inline-block';
+
+            const articles = document.querySelectorAll('article[data-id]');
+
+            for (let i = 0; i < articles.length && isPlayingAll; i++) {
+                const article = articles[i];
+                const itemId = article.getAttribute('data-id');
+                const title = article.querySelector('.item-title')?.textContent || '';
+                const description = article.querySelector('.item-description')?.textContent || '';
+                const text = `${title} ${description}`;
+
+                if (text.trim()) {
+                    try {
+                        // Highlight current article
+                        highlightCurrentItem(itemId);
+
+                        // Play the article
+                        await playTTS(itemId, text, null);
+
+                        // Wait for audio to finish
+                        await new Promise(resolve => {
+                            const checkEnded = () => {
+                                if (!audioElement || isPlayingAll === false) {
+                                    resolve();
+                                    return;
+                                }
+                                if (audioElement.ended) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkEnded, 100);
+                                }
+                            };
+                            checkEnded();
+                        });
+
+                        // Wait 2 seconds AFTER the audio ends (unless stopped)
+                        if (i < articles.length - 1 && isPlayingAll) {
+                            await new Promise(resolve => {
+                                playAllResolve = resolve;
+                                setTimeout(() => {
+                                    if (isPlayingAll) resolve();
+                                }, 1000);
+                            });
+                            playAllResolve = null;
+                        }
+                    } catch (error) {
+                        console.error('Error playing article:', error);
+                    }
+                }
+            }
+
+            isPlayingAll = false;
+            playAllResolve = null;
+            document.getElementById('playAllBtn').style.display = 'inline-block';
+            document.getElementById('stopAllBtn').style.display = 'none';
+        }
 
         // Language detection for TTS voice selection
         function detectLanguage(text) {
             const frWords = ['le ', 'la ', 'les ', 'de ', 'des ', 'un ', 'une ', 'et ', 'en ', 'à ', 'est ', 'pas ', 'je ', 'tu ', 'il ', 'elle '];
             const enWords = ['the ', 'a ', 'an ', 'and ', 'in ', 'to ', 'of ', 'is ', 'it ', 'that ', 'this ', 'with ', 'for '];
-            
+
             const textLower = text.toLowerCase();
             const frCount = frWords.reduce((c, w) => c + (textLower.split(w).length - 1), 0);
             const enCount = enWords.reduce((c, w) => c + (textLower.split(w).length - 1), 0);
-            
+
             return frCount > enCount ? 'fr' : 'en';
         }
 
@@ -688,6 +769,12 @@
                     </div>
                     <button onclick="window.location.reload()" class="btn" title="Rafraîchir">
                         <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button onclick="playAllArticlesTTS()" class="btn btn-primary" title="Lire tous les articles" id="playAllBtn">
+                        <i class="fas fa-play"></i> Lire tout
+                    </button>
+                    <button onclick="stopAllTTS()" class="btn btn-secondary" title="Arrêter la lecture" id="stopAllBtn" style="display: none;">
+                        <i class="fas fa-stop"></i> Arrêter
                     </button>
                     <a href="/toggle-read?showRead={{if not .ShowRead}}true{{else}}false{{end}}&view={{.ViewMode}}&filter={{.FilterMode}}"
                         class="btn {{if .ShowRead}}active{{end}}" title="Afficher/Masquer les articles lus">
