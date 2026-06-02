@@ -119,6 +119,8 @@ h6 {
 /* ===== Sidebar ==== */
 .sidebar {
     width: 280px;
+    min-width: 240px;
+    margin-bottom: 80px;
     background: var(--card-bg);
     border-right: 1px solid var(--border);
     position: sticky;
@@ -1691,9 +1693,4 @@ article.tts-playing {
 /* Settings page toolbar */
 .settings-section .toolbar {
     margin-bottom: 1rem;
-}
-
-/* Fix sidebar footer overlap with TTS player */
-.sidebar {
-    margin-bottom: 80px; /* Space for TTS player */
 }

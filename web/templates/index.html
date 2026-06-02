@@ -27,6 +27,8 @@
 
         // Load saved TTS settings
         let savedVoice = 'c69964a6-ab8b-4f8a-9465-ec0925096ec8';
+        let savedVoiceFR = '5a271406-039d-46fe-835b-fbbb00eaf08d'; // Marie - Neutral (fr_fr)
+        let savedVoiceEN = 'c69964a6-ab8b-4f8a-9465-ec0925096ec8'; // Paul - Neutral (en_us)
         let savedModel = 'voxtral-mini-tts-2603';
         
         function loadTTSSettings() {
@@ -35,6 +37,8 @@
                 try {
                     const settings = JSON.parse(savedSettings);
                     if (settings.voice) savedVoice = settings.voice;
+                    if (settings.voiceFR) savedVoiceFR = settings.voiceFR;
+                    if (settings.voiceEN) savedVoiceEN = settings.voiceEN;
                     if (settings.model) savedModel = settings.model;
                 } catch (e) {
                     console.error('Failed to load TTS settings:', e);
@@ -44,6 +48,27 @@
         
         // Load TTS settings on page load
         loadTTSSettings();
+
+        // Language detection for TTS voice selection
+        function detectLanguage(text) {
+            const frWords = ['le ', 'la ', 'les ', 'de ', 'des ', 'un ', 'une ', 'et ', 'en ', 'à ', 'est ', 'pas ', 'je ', 'tu ', 'il ', 'elle '];
+            const enWords = ['the ', 'a ', 'an ', 'and ', 'in ', 'to ', 'of ', 'is ', 'it ', 'that ', 'this ', 'with ', 'for '];
+            
+            const textLower = text.toLowerCase();
+            const frCount = frWords.reduce((c, w) => c + (textLower.split(w).length - 1), 0);
+            const enCount = enWords.reduce((c, w) => c + (textLower.split(w).length - 1), 0);
+            
+            return frCount > enCount ? 'fr' : 'en';
+        }
+
+        // Get voice for language (uses saved voices from settings)
+        function getVoiceForLang(lang) {
+            const voiceMap = {
+                fr: savedVoiceFR,
+                en: savedVoiceEN
+            };
+            return voiceMap[lang] || savedVoice; // Fallback to default voice
+        }
 
         function markAsRead(itemId, event) {
             if (event) {
@@ -396,6 +421,10 @@
                     return;
                 }
 
+                // Detect language and use appropriate voice
+                const detectedLang = detectLanguage(text);
+                const voiceToUse = getVoiceForLang(detectedLang);
+
                 const response = await fetch('/api/tts/speak', {
                     method: 'POST',
                     headers: {
@@ -403,7 +432,7 @@
                     },
                     body: JSON.stringify({
                         text: text,
-                        voice: savedVoice,
+                        voice: voiceToUse,
                         model: savedModel
                     })
                 });

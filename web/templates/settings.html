@@ -80,11 +80,15 @@
         // TTS Settings functions
         async function saveTTSSettings() {
             const voice = document.getElementById('ttsVoice').value;
+            const voiceFR = document.getElementById('ttsVoiceFR').value;
+            const voiceEN = document.getElementById('ttsVoiceEN').value;
             const model = document.getElementById('ttsModel').value;
             const autoPlay = document.getElementById('ttsAutoPlay').checked;
 
             const settings = {
                 voice: voice,
+                voiceFR: voiceFR,
+                voiceEN: voiceEN,
                 model: model,
                 autoPlay: autoPlay
             };
@@ -103,16 +107,21 @@
             if (savedSettings) {
                 try {
                     const settings = JSON.parse(savedSettings);
-                    const voiceSelect = document.getElementById('ttsVoice');
-                    const modelSelect = document.getElementById('ttsModel');
+                    const selects = {
+                        voice: 'ttsVoice',
+                        voiceFR: 'ttsVoiceFR',
+                        voiceEN: 'ttsVoiceEN',
+                        model: 'ttsModel'
+                    };
                     
-                    if (settings.voice) {
-                        const option = voiceSelect.querySelector(`option[value="${settings.voice}"]`);
-                        if (option) voiceSelect.value = settings.voice;
-                    }
-                    if (settings.model) {
-                        const option = modelSelect.querySelector(`option[value="${settings.model}"]`);
-                        if (option) modelSelect.value = settings.model;
+                    for (const [key, selectId] of Object.entries(selects)) {
+                        if (settings[key]) {
+                            const select = document.getElementById(selectId);
+                            if (select) {
+                                const option = select.querySelector(`option[value="${settings[key]}"]`);
+                                if (option) select.value = settings[key];
+                            }
+                        }
                     }
                     document.getElementById('ttsAutoPlay').checked = settings.autoPlay || false;
                 } catch (e) {
@@ -126,28 +135,35 @@
                 const response = await fetch('/api/tts/voices');
                 if (response.ok) {
                     const voices = await response.json();
-                    const select = document.getElementById('ttsVoice');
-                    if (!select) return;
+                    const selects = ['ttsVoice', 'ttsVoiceFR', 'ttsVoiceEN'];
                     
-                    select.innerHTML = '';
-                    voices.forEach(voice => {
-                        const option = document.createElement('option');
-                        option.value = voice.id;
-                        option.textContent = `${voice.name} (${voice.languages?.join(', ') || 'unknown'})`;
-                        select.appendChild(option);
+                    selects.forEach(selectId => {
+                        const select = document.getElementById(selectId);
+                        if (!select) return;
+                        
+                        select.innerHTML = '';
+                        voices.forEach(voice => {
+                            const option = document.createElement('option');
+                            option.value = voice.id;
+                            option.textContent = `${voice.name} (${voice.languages?.join(', ') || 'unknown'})`;
+                            select.appendChild(option);
+                        });
                     });
                 }
             } catch (e) {
                 console.error('Failed to load TTS voices:', e);
                 // Fallback to default voices
-                const select = document.getElementById('ttsVoice');
-                if (select && select.options.length === 0) {
-                    select.innerHTML = `
-                        <option value="c69964a6-ab8b-4f8a-9465-ec0925096ec8">Paul - Neutral (en_us)</option>
-                        <option value="530e2e20-58e2-45d8-b0a5-4594f4915944">Paul - Sad (en_us)</option>
-                        <option value="1024d823-a11e-43ee-bf3d-d440dccc0577">Paul - Happy (en_us)</option>
-                    `;
-                }
+                const fallbackVoices = `
+                    <option value="5a271406-039d-46fe-835b-fbbb00eaf08d">Marie - Neutral (fr_fr)</option>
+                    <option value="c69964a6-ab8b-4f8a-9465-ec0925096ec8">Paul - Neutral (en_us)</option>
+                    <option value="e3596645-b1af-469e-b857-f18ddedc7652">Oliver - Neutral (en_gb)</option>
+                `;
+                ['ttsVoice', 'ttsVoiceFR', 'ttsVoiceEN'].forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select && select.options.length === 0) {
+                        select.innerHTML = fallbackVoices;
+                    }
+                });
             }
         }
 
@@ -293,26 +309,29 @@
                         <p>Configurez les paramètres de synthèse vocale pour FeedFusion.</p>
 
                         <div class="form-group">
-                            <label for="ttsVoice">Voix :</label>
+                            <label for="ttsVoice">Voix par défaut :</label>
                             <select id="ttsVoice" class="form-select">
-                                <option value="fr_FR">Français (France)</option>
-                                <option value="en_US">Anglais (États-Unis)</option>
-                                <option value="en_GB">Anglais (Royaume-Uni)</option>
-                                <option value="de_DE">Allemand</option>
-                                <option value="es_ES">Espagnol</option>
-                                <option value="it_IT">Italien</option>
-                                <option value="pt_PT">Portugais</option>
-                                <option value="nl_NL">Néerlandais</option>
-                                <option value="pl_PL">Polonais</option>
                             </select>
-                            <small class="form-hint">Sélectionnez la voix pour la synthèse vocale</small>
+                            <small class="form-hint">Voix utilisée par défaut si la détection de langue échoue</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ttsVoiceFR">Voix française :</label>
+                            <select id="ttsVoiceFR" class="form-select">
+                            </select>
+                            <small class="form-hint">Voix utilisée pour les articles en français</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ttsVoiceEN">Voix anglaise :</label>
+                            <select id="ttsVoiceEN" class="form-select">
+                            </select>
+                            <small class="form-hint">Voix utilisée pour les articles en anglais</small>
                         </div>
 
                         <div class="form-group">
                             <label for="ttsModel">Modèle :</label>
                             <select id="ttsModel" class="form-select">
-                                <option value="mistral-small">Mistral Small (rapide)</option>
-                                <option value="mistral-medium">Mistral Medium (meilleure qualité)</option>
                             </select>
                             <small class="form-hint">Sélectionnez le modèle de synthèse vocale</small>
                         </div>
