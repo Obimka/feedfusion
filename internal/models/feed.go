@@ -4,7 +4,8 @@ import "time"
 
 type Feed struct {
 	ID        uint   `gorm:"primarykey"`
-	URL       string `gorm:"unique;not null"`
+	UserID    uint   `gorm:"index;not null;default:1"` // Owner of this feed
+	URL       string `gorm:"not null"`
 	Title     string
 	Link      string
 	Type      string `gorm:"default:rss"` // rss, atom, json
@@ -21,14 +22,14 @@ type Feed struct {
 
 type Item struct {
 	ID          uint   `gorm:"primarykey"`
-	FeedID      uint   `gorm:"index"`
+	FeedID      uint   `gorm:"index;not null"`
 	FeedTitle   string `gorm:"-"` // Transient, from Feed
 	Title       string
-	Link        string    `gorm:"unique;not null"`
+	Link        string    `gorm:"not null"`
 	Description string    `gorm:"type:text"`
 	Content     string    `gorm:"type:text"`
 	ImageURL    string    `gorm:"type:text"` // URL de l'image/thumbnail
 	PublishedAt time.Time `gorm:"index"`
 	Read        bool      `gorm:"default:false"`
-	Guid        string    `gorm:"unique;not null"` // Unique identifier from feed
+	Guid        string    `gorm:"not null"` // Unique identifier from feed (unique per feed, not globally)
 }

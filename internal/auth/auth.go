@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"rss-aggregator/internal/models"
 )
 
 var (
@@ -15,13 +16,8 @@ var (
 	ErrTokenInvalid       = errors.New("invalid token")
 )
 
-// User represents an authenticated user
-type User struct {
-	ID       uint   `json:"id" gorm:"primarykey"`
-	Username string `json:"username" gorm:"unique;not null"`
-	Password string `json:"-" gorm:"not null"` // Never return password in JSON
-	IsAdmin  bool   `json:"is_admin" gorm:"default:false"`
-}
+// User is an alias for models.User for backward compatibility
+type User = models.User
 
 // Credentials for login
 type Credentials struct {
