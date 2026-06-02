@@ -9,6 +9,7 @@ import (
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/config"
 	"rss-aggregator/internal/handlers"
+	"rss-aggregator/internal/tts"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
@@ -58,6 +59,27 @@ func main() {
 	authHandler := auth.NewAuthHandler(db, jwtConfig)
 	authHandler.RegisterRoutes(r)
 
+	// Initialize TTS handler if API key is provided (from config or env)
+	mistralAPIKey := ""
+	cfg, err := config.LoadConfig("data/config.yaml")
+	if err != nil {
+	    log.Printf("Warning: failed to load config: %v", err)
+	} else {
+	    log.Printf("Config loaded, MistralAPIKey present: %v", cfg.MistralAPIKey != "")
+	}
+	if err == nil && cfg != nil && cfg.MistralAPIKey != "" {
+	    mistralAPIKey = cfg.MistralAPIKey
+	    log.Printf("TTS: Using API key from config file")
+	} else if apiKey := os.Getenv("MISTRAL_API_KEY"); apiKey != "" {
+	    mistralAPIKey = apiKey
+	    log.Printf("TTS: Using API key from environment")
+	}
+	if mistralAPIKey != "" {
+		ttsHandler := tts.NewTTSHandler(mistralAPIKey)
+		ttsHandler.RegisterRoutes(r)
+		log.Println("TTS enabled - Mistral API available")
+	}
+
 	// Register main handlers
 	handlers.RegisterRoutes(r, db)
 
@@ -66,8 +88,6 @@ func main() {
 
 	// Apply auth middleware
 	r.Use(auth.AuthMiddleware(jwtConfig))
-
-	http.Handle("/", r)
 
 	// Determine server port: config > env > default
 	port := "8081"
@@ -80,7 +100,7 @@ func main() {
 	log.Printf("Server started on :%s", port)
 	log.Println("WebSub support enabled - feeds will receive push notifications when available")
 	log.Println("Authentication enabled - use /api/login endpoint")
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 func loadConfigFeeds(db *gorm.DB) {

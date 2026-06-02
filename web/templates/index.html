@@ -8,6 +8,43 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
+        let ttsEnabled = false;
+
+        async function checkTTSSatus() {
+            try {
+                const response = await fetch('/api/tts/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    ttsEnabled = data.enabled;
+                }
+            } catch (e) {
+                ttsEnabled = false;
+            }
+        }
+
+        // Check TTS status on page load
+        checkTTSSatus();
+
+        // Load saved TTS settings
+        let savedVoice = 'c69964a6-ab8b-4f8a-9465-ec0925096ec8';
+        let savedModel = 'voxtral-mini-tts-2603';
+        
+        function loadTTSSettings() {
+            const savedSettings = localStorage.getItem('ttsSettings');
+            if (savedSettings) {
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    if (settings.voice) savedVoice = settings.voice;
+                    if (settings.model) savedModel = settings.model;
+                } catch (e) {
+                    console.error('Failed to load TTS settings:', e);
+                }
+            }
+        }
+        
+        // Load TTS settings on page load
+        loadTTSSettings();
+
         function markAsRead(itemId, event) {
             if (event) {
                 event.preventDefault();
@@ -297,6 +334,231 @@
             }
             loadWeather(savedCity);
         });
+
+        // TTS Player variables
+        let audioContext = null;
+        let audioElement = null;
+        let currentAudio = null;
+        let isPlaying = false;
+
+        // Initialize TTS player on DOM load
+        document.addEventListener('DOMContentLoaded', function() {
+            audioElement = document.getElementById('ttsAudio');
+
+            audioElement.addEventListener('play', function() {
+                isPlaying = true;
+                updatePlayIcon();
+            });
+
+            audioElement.addEventListener('pause', function() {
+                isPlaying = false;
+                updatePlayIcon();
+            });
+
+            audioElement.addEventListener('ended', function() {
+                isPlaying = false;
+                updatePlayIcon();
+                resetProgress();
+            });
+
+            audioElement.addEventListener('timeupdate', function() {
+                updateProgress();
+                updateTimeDisplay();
+            });
+
+            audioElement.addEventListener('loadedmetadata', function() {
+                updateDurationDisplay();
+            });
+        });
+
+        // Play TTS for a specific item
+        async function playTTS(itemId, text, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            // Check if we're already playing the same item
+            const currentText = document.getElementById('ttsAudio').getAttribute('data-text');
+            if (currentText === text && !audioElement.paused) {
+                // Toggle play/pause if clicking the same item
+                togglePlayPause();
+                return;
+            }
+
+            // Stop current playback
+            stopTTS();
+
+            // Fetch audio from TTS API
+            try {
+                if (!ttsEnabled) {
+                    alert('TTS is not available. Please check server configuration.');
+                    return;
+                }
+
+                const response = await fetch('/api/tts/speak', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: savedVoice,
+                        model: savedModel
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error || 'Failed to generate speech');
+                }
+
+                // Get audio data (WAV format)
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // Set audio source and metadata
+                audioElement.src = audioUrl;
+                audioElement.setAttribute('data-text', text);
+                audioElement.setAttribute('data-item-id', itemId);
+
+                // Play automatically
+                await audioElement.play();
+
+                // Highlight the current playing item
+                highlightCurrentItem(itemId);
+
+            } catch (error) {
+                console.error('TTS Error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Toggle play/pause
+        function togglePlayPause() {
+            if (!audioElement) return;
+
+            if (audioElement.paused) {
+                audioElement.play();
+            } else {
+                audioElement.pause();
+            }
+        }
+
+        // Stop TTS playback
+        function stopTTS() {
+            if (!audioElement) return;
+
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            resetProgress();
+            removeCurrentItemHighlight();
+        }
+
+        // Update play/pause icon
+        function updatePlayIcon() {
+            const icon = document.getElementById('ttsPlayIcon');
+            if (!icon) return;
+
+            if (isPlaying) {
+                icon.className = 'fas fa-pause';
+            } else {
+                icon.className = 'fas fa-play';
+            }
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            if (!audioElement) return;
+
+            const progressBar = document.getElementById('ttsProgress');
+            if (!progressBar) return;
+
+            const percent = (audioElement.currentTime / audioElement.duration) * 100;
+            progressBar.style.width = percent + '%';
+        }
+
+        // Reset progress bar
+        function resetProgress() {
+            const progressBar = document.getElementById('ttsProgress');
+            if (progressBar) {
+                progressBar.style.width = '0%';
+            }
+        }
+
+        // Update time display
+        function updateTimeDisplay() {
+            const currentTimeEl = document.getElementById('ttsCurrentTime');
+            const durationEl = document.getElementById('ttsDuration');
+
+            if (currentTimeEl && audioElement) {
+                currentTimeEl.textContent = formatTime(audioElement.currentTime);
+            }
+        }
+
+        // Update duration display
+        function updateDurationDisplay() {
+            const durationEl = document.getElementById('ttsDuration');
+            if (durationEl && audioElement) {
+                durationEl.textContent = formatTime(audioElement.duration);
+            }
+        }
+
+        // Format time in MM:SS
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return minutes + ':' + (secs < 10 ? '0' : '') + secs;
+        }
+
+        // Highlight the current playing item
+        function highlightCurrentItem(itemId) {
+            // Remove highlight from all items
+            removeCurrentItemHighlight();
+
+            // Add highlight to current item
+            const item = document.querySelector(`article[data-id="${itemId}"]`);
+            if (item) {
+                item.classList.add('tts-playing');
+
+                // Scroll to item if not visible
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        // Remove highlight from current item
+        function removeCurrentItemHighlight() {
+            const playingItems = document.querySelectorAll('article.tts-playing');
+            playingItems.forEach(item => {
+                item.classList.remove('tts-playing');
+            });
+        }
+
+        // Get cookie by name
+        function getCookie(name) {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [cookieName, cookieValue] = cookie.trim().split('=');
+                if (cookieName === name) {
+                    return cookieValue;
+                }
+            }
+            return null;
+        }
+
+        // Allow progress bar click to seek
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressContainer = document.getElementById('ttsProgress');
+            if (progressContainer) {
+                progressContainer.parentElement.addEventListener('click', function(e) {
+                    if (!audioElement || !audioElement.duration) return;
+
+                    const rect = this.getBoundingClientRect();
+                    const pos = (e.clientX - rect.left) / rect.width;
+                    audioElement.currentTime = pos * audioElement.duration;
+                });
+            }
+        });
     </script>
 </head>
 
@@ -336,8 +598,11 @@
                 </div>
             </div>
             <div class="sidebar-footer">
-                <a href="/add-feed" class="btn btn-primary" style="width: 100%;">
-                    <i class="fas fa-plus"></i> Ajouter un flux
+                <a href="/feeds" class="btn" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-rss"></i> Gérer les flux
+                </a>
+                <a href="/settings" class="btn" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-cog"></i> Paramètres
                 </a>
                 <a href="/login" class="btn btn-secondary logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();" style="width: 100%; margin-top: 0.5rem;">
                     <i class="fas fa-sign-out-alt"></i> Déconnexion
@@ -400,7 +665,7 @@
                         <i class="fas fa-eye{{if not .ShowRead}}-slash{{end}}"></i>
                     </a>
                     <a href="/feeds" class="btn" title="Gérer les flux">
-                        <i class="fas fa-cog"></i>
+                        <i class="fas fa-rss"></i>
                     </a>
                     <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
                         <i class="fas fa-moon" id="theme-toggle-icon"></i>
@@ -456,6 +721,10 @@
                                         class="item-action">
                                         <i class="fas fa-external-link-alt"></i> Lire
                                     </a>
+                                    <a href="#" onclick="playTTS({{.ID}}, '{{.Title | safeHTML}} {{.Description | safeHTML}}', event);"
+                                        class="item-action tts-action" title="Lire le texte">
+                                        <i class="fas fa-volume-up"></i>
+                                    </a>
                                     {{if .Read}}
                                     <a href="#" onclick="return markAsUnread({{.ID}}, event);"
                                         class="item-action mark-unread" title="Marquer comme non lu">
@@ -492,13 +761,31 @@
                 <div class="empty-state">
                     <h2><i class="fas fa-envelope-open-text"></i> Aucun article pour l'instant</h2>
                     <p>Ajoutez votre premier flux RSS pour commencer !</p>
-                    <a href="/add-feed" class="btn btn-primary mt-2">
-                        <i class="fas fa-plus"></i> Ajouter un flux
+                    <a href="/feeds" class="btn btn-primary mt-2">
+                        <i class="fas fa-rss"></i> Gérer les flux
                     </a>
                 </div>
                 {{end}}
             </div>
         </main>
+    </div>
+
+    <!-- TTS Audio Player -->
+    <div class="tts-player" id="ttsPlayer">
+        <div class="tts-controls">
+            <button id="ttsPlayPause" class="tts-button" title="Play/Pause" onclick="togglePlayPause()">
+                <i class="fas fa-play" id="ttsPlayIcon"></i>
+            </button>
+            <button id="ttsStop" class="tts-button" title="Stop" onclick="stopTTS()">
+                <i class="fas fa-stop"></i>
+            </button>
+            <div class="tts-progress-container">
+                <div class="tts-progress" id="ttsProgress"></div>
+            </div>
+            <span class="tts-time" id="ttsCurrentTime">0:00</span>
+            <span class="tts-time" id="ttsDuration">0:00</span>
+        </div>
+        <audio id="ttsAudio" preload="auto"></audio>
     </div>
 </body>
 

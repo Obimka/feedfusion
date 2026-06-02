@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramètres - FeedFusion</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        let ttsEnabled = false;
+
+        async function checkTTSSatus() {
+            try {
+                const response = await fetch('/api/tts/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    ttsEnabled = data.enabled;
+                }
+            } catch (e) {
+                ttsEnabled = false;
+            }
+        }
+
+        // Check TTS status on page load
+        checkTTSSatus();
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) {
+                icon.className = html.getAttribute('data-theme') === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        function toggleSidebar() {
+            const appContainer = document.querySelector('.app-container');
+            const btn = document.querySelector('.sidebar-toggle i');
+
+            appContainer.classList.toggle('sidebar-collapsed');
+
+            if (appContainer.classList.contains('sidebar-collapsed')) {
+                btn.className = 'fas fa-bars';
+            } else {
+                btn.className = 'fas fa-chevron-left';
+            }
+
+            const isCollapsed = appContainer.classList.contains('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon();
+
+            // Load TTS voices and models
+            loadTTSSettings();
+
+            const appContainer = document.querySelector('.app-container');
+            const btn = document.querySelector('.sidebar-toggle i');
+            const savedSidebarState = localStorage.getItem('sidebarCollapsed');
+            if (savedSidebarState === 'true') {
+                appContainer.classList.add('sidebar-collapsed');
+                btn.className = 'fas fa-bars';
+            } else {
+                btn.className = 'fas fa-chevron-left';
+            }
+        });
+
+        // TTS Settings functions
+        async function saveTTSSettings() {
+            const voice = document.getElementById('ttsVoice').value;
+            const model = document.getElementById('ttsModel').value;
+            const autoPlay = document.getElementById('ttsAutoPlay').checked;
+
+            const settings = {
+                voice: voice,
+                model: model,
+                autoPlay: autoPlay
+            };
+
+            localStorage.setItem('ttsSettings', JSON.stringify(settings));
+            alert('Paramètres TTS enregistrés !');
+        }
+
+        async function loadTTSSettings() {
+            // Load voices and models from API
+            await loadTTSVoices();
+            await loadTTSModels();
+
+            // Try to load saved settings from localStorage
+            const savedSettings = localStorage.getItem('ttsSettings');
+            if (savedSettings) {
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    const voiceSelect = document.getElementById('ttsVoice');
+                    const modelSelect = document.getElementById('ttsModel');
+                    
+                    if (settings.voice) {
+                        const option = voiceSelect.querySelector(`option[value="${settings.voice}"]`);
+                        if (option) voiceSelect.value = settings.voice;
+                    }
+                    if (settings.model) {
+                        const option = modelSelect.querySelector(`option[value="${settings.model}"]`);
+                        if (option) modelSelect.value = settings.model;
+                    }
+                    document.getElementById('ttsAutoPlay').checked = settings.autoPlay || false;
+                } catch (e) {
+                    console.error('Failed to load TTS settings:', e);
+                }
+            }
+        }
+
+        async function loadTTSVoices() {
+            try {
+                const response = await fetch('/api/tts/voices');
+                if (response.ok) {
+                    const voices = await response.json();
+                    const select = document.getElementById('ttsVoice');
+                    if (!select) return;
+                    
+                    select.innerHTML = '';
+                    voices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice.id;
+                        option.textContent = `${voice.name} (${voice.languages?.join(', ') || 'unknown'})`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load TTS voices:', e);
+                // Fallback to default voices
+                const select = document.getElementById('ttsVoice');
+                if (select && select.options.length === 0) {
+                    select.innerHTML = `
+                        <option value="c69964a6-ab8b-4f8a-9465-ec0925096ec8">Paul - Neutral (en_us)</option>
+                        <option value="530e2e20-58e2-45d8-b0a5-4594f4915944">Paul - Sad (en_us)</option>
+                        <option value="1024d823-a11e-43ee-bf3d-d440dccc0577">Paul - Happy (en_us)</option>
+                    `;
+                }
+            }
+        }
+
+        async function loadTTSModels() {
+            try {
+                const response = await fetch('/api/tts/models');
+                if (response.ok) {
+                    const models = await response.json();
+                    const select = document.getElementById('ttsModel');
+                    if (!select) return;
+                    
+                    select.innerHTML = '';
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load TTS models:', e);
+            }
+        }
+
+        async function testTTS() {
+            // Wait for voices and models to load
+            const voiceSelect = document.getElementById('ttsVoice');
+            const modelSelect = document.getElementById('ttsModel');
+            
+            if (!voiceSelect || voiceSelect.options.length === 0 || !modelSelect || modelSelect.options.length === 0) {
+                alert('Please wait, TTS voices and models are loading...');
+                return;
+            }
+            
+            const text = document.getElementById('ttsTestText').value || 'Test de synthèse vocale';
+            const voice = voiceSelect.value;
+            const model = modelSelect.value;
+
+            await playTTSFromSettings(text, voice, model);
+        }
+
+        async function playTTSFromSettings(text, voice, model) {
+            if (!ttsEnabled) {
+                alert('TTS is not available. Please check server configuration.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tts/speak', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: voice,
+                        model: model
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error || 'Échec de la génération vocale');
+                }
+
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+
+            } catch (error) {
+                console.error('TTS Error:', error);
+                alert('Erreur: ' + error.message);
+            }
+        }
+
+        function getCookie(name) {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [cookieName, cookieValue] = cookie.trim().split('=');
+                if (cookieName === name) {
+                    return cookieValue;
+                }
+            }
+            return null;
+        }
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-cog"></i> Paramètres</h2>
+            </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/" class="filter-option-link">
+                        <i class="fas fa-arrow-left"></i> Retour aux articles
+                    </a>
+                    <a href="/feeds" class="filter-option-link">
+                        <i class="fas fa-rss"></i> Gérer les flux
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/login" class="btn btn-secondary logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </a>
+                <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <button onclick="toggleSidebar()" class="sidebar-toggle btn" title="Masquer/afficher le menu">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2><i class="fas fa-microphone"></i> Text-to-Speech</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <button onclick="saveTTSSettings()" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                        <a href="/" class="btn" title="Retour aux articles">
+                            <i class="fas fa-arrow-left"></i>
+                        </a>
+                        <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-container">
+                    <div class="settings-section">
+                        <h3><i class="fas fa-microphone"></i> Paramètres TTS</h3>
+                        <p>Configurez les paramètres de synthèse vocale pour FeedFusion.</p>
+
+                        <div class="form-group">
+                            <label for="ttsVoice">Voix :</label>
+                            <select id="ttsVoice" class="form-select">
+                                <option value="fr_FR">Français (France)</option>
+                                <option value="en_US">Anglais (États-Unis)</option>
+                                <option value="en_GB">Anglais (Royaume-Uni)</option>
+                                <option value="de_DE">Allemand</option>
+                                <option value="es_ES">Espagnol</option>
+                                <option value="it_IT">Italien</option>
+                                <option value="pt_PT">Portugais</option>
+                                <option value="nl_NL">Néerlandais</option>
+                                <option value="pl_PL">Polonais</option>
+                            </select>
+                            <small class="form-hint">Sélectionnez la voix pour la synthèse vocale</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ttsModel">Modèle :</label>
+                            <select id="ttsModel" class="form-select">
+                                <option value="mistral-small">Mistral Small (rapide)</option>
+                                <option value="mistral-medium">Mistral Medium (meilleure qualité)</option>
+                            </select>
+                            <small class="form-hint">Sélectionnez le modèle de synthèse vocale</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="ttsAutoPlay" class="form-checkbox">
+                                <span>Lecture automatique</span>
+                            </label>
+                            <small class="form-hint">Lire automatiquement l'article après génération</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ttsTestText">Tester la synthèse vocale :</label>
+                            <textarea id="ttsTestText" class="form-textarea" placeholder="Entrez du texte à tester..." rows="3">Bonjour, ceci est un test de synthèse vocale avec FeedFusion.</textarea>
+                            <button onclick="testTTS()" class="btn btn-secondary mt-1">
+                                <i class="fas fa-play"></i> Tester
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3><i class="fas fa-info-circle"></i> À propos de TTS</h3>
+                        <p>La fonctionnalité de synthèse vocale utilise l'API Mistral AI.</p>
+                        <p><strong>Configuration requise :</strong></p>
+                        <ul>
+                            <li>Une clé API Mistral valide (à définir dans <code>MISTRAL_API_KEY</code> ou <code>data/config.yaml</code>)</li>
+                            <li>L'authentification utilisateur doit être activée</li>
+                        </ul>
+                        <p><a href="https://console.mistral.ai/" target="_blank" rel="noopener noreferrer">Obtenir une clé API Mistral</a></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

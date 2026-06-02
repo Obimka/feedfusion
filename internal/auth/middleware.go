@@ -68,10 +68,12 @@ func isPublicPath(path string) bool {
 		"/api/login",
 		"/api/refresh",
 		"/api/logout",
+		"/api/tts",
 		"/health",
 		"/static",
 		"/login",
 		"/logged-out",
+		"/settings",
 		"/websub/callback",
 	}
 

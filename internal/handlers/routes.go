@@ -49,6 +49,16 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 		tmpl.ExecuteTemplate(w, "logout.html", nil)
 	})
 
+	// Settings page - requires authentication
+	r.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
+		// Check if user is authenticated
+		if _, err := r.Cookie("token"); err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		tmpl.ExecuteTemplate(w, "settings.html", nil)
+	})
+
 	// Protected routes
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Check if user is authenticated

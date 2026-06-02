@@ -1,7 +1,8 @@
 # FeedFusion
 
-![Go](https://img.shields.io/badge/go-1.21-blue.svg)
+![Go](https://img.shields.io/badge/go-1.25-blue.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/obimka/feedfusion)](https://goreportcard.com/report/github.com/obimka/feedfusion)
+[![Build Status](https://github.com/obimka/feedfusion/actions/workflows/go.yml/badge.svg)](https://github.com/obimka/feedfusion/actions/workflows/go.yml)
 
 **FeedFusion** is a self-hosted RSS/Atom feed aggregator with WebSub support for real-time updates.
 
@@ -144,6 +145,65 @@ go test ./...
 make watch
 ```
 (Requires [modd](https://github.com/canthefason/go-modd) for file watching)
+
+## Text-to-Speech (TTS)
+
+FeedFusion integrates with Mistral AI's TTS API to convert text to speech.
+
+### Enable TTS
+
+**Option 1: Environment Variable**
+```bash
+export MISTRAL_API_KEY=your-mistral-api-key
+./bin/feedfusion
+```
+
+**Option 2: Configuration File**
+Add to `data/config.yaml`:
+```yaml
+server_port: 8081
+mistral_api_key: "your-mistral-api-key"
+feeds:
+  - url: https://...
+```
+
+**Option 3: Docker**
+```bash
+docker run -e MISTRAL_API_KEY=your-key -p 8081:8081 feedfusion
+```
+
+### TTS API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/tts/status` | Check if TTS is configured and enabled |
+| POST | `/api/tts/speak` | Generate speech from text |
+| GET | `/api/tts/voices` | List available voices |
+| GET | `/api/tts/models` | List available models |
+
+**Note**: TTS endpoints do not require authentication. They only need the Mistral API key configured in `data/config.yaml` or via `MISTRAL_API_KEY` environment variable.
+
+### Generate Speech
+
+```bash
+curl -X POST http://localhost:8081/api/tts/speak \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world", "voice": "fr_FR", "model": "mistral-small"}' \
+  --output speech.wav
+```
+
+**Request Body:**
+```json
+{
+  "text": "Text to convert to speech",
+  "voice": "fr_FR",  // Optional, default: fr_FR
+  "model": "mistral-small"  // Optional, default: mistral-small
+}
+```
+
+**Available Voices:** `fr_FR`, `en_US`, `en_GB`, `de_DE`, `es_ES`, `it_IT`, `pt_PT`, `nl_NL`, `pl_PL`
+
+**Available Models:** `mistral-small`, `mistral-medium`
 
 ## Authentication
 
