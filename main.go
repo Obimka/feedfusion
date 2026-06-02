@@ -81,7 +81,7 @@ func main() {
 	}
 
 	// Register main handlers
-	handlers.RegisterRoutes(r, db)
+	handlers.RegisterRoutes(r, db, jwtConfig)
 
 	// Serve web
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", newStaticHandler("web/static")))

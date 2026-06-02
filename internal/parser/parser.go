@@ -123,14 +123,14 @@ func findHubInXMLFromURL(feedURL string) string {
 func findHubInXML(xmlStr string) string {
 	lowerXML := strings.ToLower(xmlStr)
 
-	// Look for <link rel="hub" href="...">
-	if strings.Contains(lowerXML, `<link rel="hub"`) {
+	// Look for <link rel="hub" href="..."> or <link rel='hub' href='...'>
+	if strings.Contains(lowerXML, `<link rel="hub"`) || strings.Contains(lowerXML, `<link rel='hub'`) {
 		start := strings.Index(lowerXML, `href="`)
 		if start != -1 {
 			start += 6
 			end := strings.Index(lowerXML[start:], `"`)
 			if end != -1 {
-				return string(xmlStr[start : start+end])
+				return xmlStr[start : start+end]
 			}
 		}
 		start = strings.Index(lowerXML, `href='`)
@@ -138,19 +138,28 @@ func findHubInXML(xmlStr string) string {
 			start += 6
 			end := strings.Index(lowerXML[start:], `'`)
 			if end != -1 {
-				return string(xmlStr[start : start+end])
+				return xmlStr[start : start+end]
 			}
 		}
 	}
 
-	// Look for <atom:link rel="hub">
-	if strings.Contains(lowerXML, `<atom:link`) && strings.Contains(lowerXML, `rel="hub"`) {
+	// Look for <atom:link rel="hub"> or <atom:link rel='hub'>
+	if (strings.Contains(lowerXML, `<atom:link`) && strings.Contains(lowerXML, `rel="hub"`)) ||
+		(strings.Contains(lowerXML, `<atom:link`) && strings.Contains(lowerXML, `rel='hub'`)) {
 		start := strings.Index(lowerXML, `href="`)
 		if start != -1 {
 			start += 6
 			end := strings.Index(lowerXML[start:], `"`)
 			if end != -1 {
-				return string(xmlStr[start : start+end])
+				return xmlStr[start : start+end]
+			}
+		}
+		start = strings.Index(lowerXML, `href='`)
+		if start != -1 {
+			start += 6
+			end := strings.Index(lowerXML[start:], `'`)
+			if end != -1 {
+				return xmlStr[start : start+end]
 			}
 		}
 	}
@@ -328,7 +337,9 @@ func isJustALink(s string) bool {
 		}
 	}
 	// Check for common link patterns
-	if s == "[link]" || s == "[self]" || s == "[self-post]" || s == "[x-post]" {
+	// These are Reddit-specific markers for post types
+	if s == "[link]" || s == "[self]" || s == "[self-post]" || s == "[x-post]" ||
+		s == "[discussion]" || s == "[text]" {
 		return true
 	}
 	return false

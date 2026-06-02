@@ -71,12 +71,13 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set token cookie (optional, for web interface)
+	// Note: Secure is disabled for localhost development
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    token,
 		Expires:  time.Now().Add(h.config.Expiration),
 		HttpOnly: true,
-		Secure:   true, // Enable in production with HTTPS
+		Secure:   false, // Enable in production with HTTPS (disabled for localhost)
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
@@ -145,7 +146,7 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
@@ -243,7 +244,7 @@ func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Expires:  time.Now().Add(h.config.Expiration),
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})

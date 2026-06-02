@@ -24,6 +24,18 @@ func InitDB(path string) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// Create composite unique index on (url, user_id) to allow same URL for different users
+	// This replaces the single-column unique constraint on url
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uni_feeds_url_user ON feeds(url, user_id)").Error; err != nil {
+		return nil, err
+	}
+
+	// Create composite unique index on (feed_id, guid) for items
+	// This allows same GUID for different feeds (e.g., same feed URL for different users)
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uni_items_feed_guid ON items(feed_id, guid)").Error; err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 
@@ -64,11 +76,12 @@ func AddFeedForUser(db *gorm.DB, feed *models.Feed, items []models.Item, userID 
 
 	for i := range items {
 		items[i].FeedID = feed.ID
-		// Try to find existing item (by GUID, unique across all users)
+		// Try to find existing item for this specific feed (by feed_id + guid)
+		// This allows different feeds (even with same URL for different users) to have their own items
 		var existingItem models.Item
-		err := tx.Where(models.Item{Guid: items[i].Guid}).First(&existingItem).Error
+		err := tx.Where("feed_id = ? AND guid = ?", feed.ID, items[i].Guid).First(&existingItem).Error
 		if err == nil {
-			// Item exists, update if image URL is missing or different
+			// Item exists for this feed, update if image URL is missing or different
 			if existingItem.ImageURL == "" && items[i].ImageURL != "" {
 				existingItem.ImageURL = items[i].ImageURL
 				if err := tx.Save(&existingItem).Error; err != nil {
@@ -76,7 +89,7 @@ func AddFeedForUser(db *gorm.DB, feed *models.Feed, items []models.Item, userID 
 				}
 			}
 		} else {
-			// Create new item
+			// Create new item for this feed
 			if err := tx.Create(&items[i]).Error; err != nil {
 				return err
 			}
@@ -99,7 +112,7 @@ func GetFilteredItems(db *gorm.DB, limit, offset int, feedIDs []uint) ([]models.
 func GetFilteredItemsByUser(db *gorm.DB, limit, offset int, feedIDs []uint, userID uint) ([]models.Item, int64, error) {
 	var items []models.Item
 	var count int64
-	query := db.Model(&models.Item{}).Joins("Feed")
+	query := db.Model(&models.Item{}).Joins("JOIN feeds ON feeds.id = items.feed_id")
 
 	// Filter by user if userID > 0
 	if userID > 0 {
@@ -126,7 +139,7 @@ func GetFilteredItemsByInclude(db *gorm.DB, limit, offset int, includeOnly bool)
 func GetFilteredItemsByIncludeAndUser(db *gorm.DB, limit, offset int, includeOnly bool, userID uint) ([]models.Item, int64, error) {
 	var items []models.Item
 	var count int64
-	query := db.Model(&models.Item{}).Joins("Feed")
+	query := db.Model(&models.Item{}).Joins("JOIN feeds ON feeds.id = items.feed_id")
 
 	// Filter by user if userID > 0
 	if userID > 0 {
@@ -240,7 +253,7 @@ func MarkItemAsReadForUser(db *gorm.DB, id uint, userID uint) error {
 	// If userID > 0, verify the item belongs to the user
 	if userID > 0 {
 		var count int64
-		db.Model(&models.Item{}).Joins("Feed").
+		db.Model(&models.Item{}).Joins("JOIN feeds ON feeds.id = items.feed_id").
 			Where("items.id = ? AND feeds.user_id = ?", id, userID).
 			Count(&count)
 		if count == 0 {
@@ -260,7 +273,7 @@ func MarkItemAsUnreadForUser(db *gorm.DB, id uint, userID uint) error {
 	// If userID > 0, verify the item belongs to the user
 	if userID > 0 {
 		var count int64
-		db.Model(&models.Item{}).Joins("Feed").
+		db.Model(&models.Item{}).Joins("JOIN feeds ON feeds.id = items.feed_id").
 			Where("items.id = ? AND feeds.user_id = ?", id, userID).
 			Count(&count)
 		if count == 0 {
@@ -279,11 +292,11 @@ func GetFilteredItemsByRead(db *gorm.DB, limit, offset int, showRead bool, feedI
 func GetFilteredItemsByReadAndUser(db *gorm.DB, limit, offset int, showRead bool, feedIDs []uint, userID uint) ([]models.Item, int64, error) {
 	var items []models.Item
 	var count int64
-	query := db.Model(&models.Item{}).Joins("Feed")
+	query := db.Model(&models.Item{}).Joins("JOIN feeds AS f ON f.id = items.feed_id")
 
 	// Filter by user if userID > 0
 	if userID > 0 {
-		query = query.Where("feeds.user_id = ?", userID)
+		query = query.Where("f.user_id = ?", userID)
 	}
 
 	// Filter by read status

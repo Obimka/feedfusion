@@ -17,7 +17,21 @@
         // Initialiser les modules au chargement
         document.addEventListener('DOMContentLoaded', function() {
             initSettingsPage();
+            checkAdminStatus();
         });
+        
+        // Vérifier si l'utilisateur est admin et afficher le lien utilisateurs
+        async function checkAdminStatus() {
+            try {
+                const response = await fetch('/api/users');
+                if (response.ok) {
+                    // Si on peut accéder à /api/users, c'est qu'on est admin
+                    document.getElementById('usersLink').style.display = 'block';
+                }
+            } catch (error) {
+                console.log('Not admin or error:', error);
+            }
+        }
     </script>
 </head>
 
@@ -34,6 +48,9 @@
                     </a>
                     <a href="/feeds" class="filter-option-link">
                         <i class="fas fa-rss"></i> Gérer les flux
+                    </a>
+                    <a href="/users" class="filter-option-link" id="usersLink" style="display: none;">
+                        <i class="fas fa-users"></i> Gérer les utilisateurs
                     </a>
                 </div>
             </div>

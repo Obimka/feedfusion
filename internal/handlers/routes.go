@@ -34,7 +34,7 @@ var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	},
 }).ParseGlob("web/templates/*.html"))
 
-func RegisterRoutes(r *mux.Router, db *gorm.DB) {
+func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 	// Login page - public access
 	r.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		// If already logged in, redirect to home
@@ -52,10 +52,13 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
 	// Settings page - requires authentication
 	r.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
-		// Check if user is authenticated
-		if _, err := r.Cookie("token"); err != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
-			return
+		// Check if user is authenticated via context (from auth middleware)
+		if _, ok := auth.GetUser(r.Context()); !ok {
+			// Fallback: check cookie for backward compatibility
+			if _, err := r.Cookie("token"); err != nil {
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
 		}
 		tmpl.ExecuteTemplate(w, "settings.html", nil)
 	})
@@ -495,4 +498,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
 		http.Redirect(w, r, "/feeds", http.StatusSeeOther)
 	})
+
+	// SSE endpoint for real-time notifications
+	r.HandleFunc("/api/events", SSEHandler(db, jwtConfig)).Methods("GET")
 }

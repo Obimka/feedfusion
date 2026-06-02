@@ -1,166 +1,301 @@
-{{define "users"}}
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des utilisateurs - FeedFusion</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/sidebar.js"></script>
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>FeedFusion</h1>
-            <p>Gestion des utilisateurs</p>
-        </header>
-
-        <nav class="breadcrumb">
-            <a href="/">Accueil</a> &gt; Utilisateurs
-        </nav>
-
-        <main>
-            <div class="admin-header">
-                <h2>Utilisateurs</h2>
-                <button id="addUserBtn" class="btn btn-primary">Ajouter un utilisateur</button>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-users"></i> Utilisateurs</h2>
             </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/" class="filter-option-link">
+                        <i class="fas fa-arrow-left"></i> Retour aux articles
+                    </a>
+                    <a href="/feeds" class="filter-option-link">
+                        <i class="fas fa-rss"></i> Gérer les flux
+                    </a>
+                    <a href="/settings" class="filter-option-link">
+                        <i class="fas fa-cog"></i> Paramètres
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/" class="btn" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+                <a href="/login" class="btn btn-secondary logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </a>
+                <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
+            </div>
+        </aside>
 
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
+        <main class="main-content">
+            <header class="header">
+                <button onclick="toggleSidebar()" class="sidebar-toggle btn" title="Masquer/afficher le menu">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
 
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nom d'utilisateur</th>
-                        <th>Administrateur</th>
-                        <th>Date de création</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTableBody">
-                    <!-- Users will be loaded here -->
-                </tbody>
-            </table>
+            <div class="content-wrapper">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2><i class="fas fa-users"></i> Gestion des utilisateurs</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="addUserBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Ajouter un utilisateur
+                        </button>
+                        <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-container">
+                    <div class="settings-section">
+                        <div id="errorMessage" class="error-message"></div>
+                        <div id="successMessage" class="success-message"></div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nom d'utilisateur</th>
+                                        <th>Administrateur</th>
+                                        <th>Date de création</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <!-- Les utilisateurs seront chargés ici -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
-
-        <footer>
-            <p><a href="/">Retour à l'accueil</a></p>
-        </footer>
     </div>
 
-    <!-- Add/Edit User Modal -->
+    <!-- Modal Ajouter/Modifier Utilisateur -->
     <div id="userModal" class="modal" style="display: none;">
         <div class="modal-content">
             <h3 id="modalTitle">Ajouter un utilisateur</h3>
             <form id="userForm">
                 <input type="hidden" id="userId">
                 <div class="form-group">
-                    <label for="modalUsername">Nom d'utilisateur</label>
-                    <input type="text" id="modalUsername" required>
+                    <label for="modalUsername">Nom d'utilisateur *</label>
+                    <input type="text" id="modalUsername" class="form-input" required>
                 </div>
                 <div class="form-group">
                     <label for="modalPassword">Mot de passe</label>
-                    <input type="password" id="modalPassword">
-                    <small>Laisser vide pour ne pas changer</small>
+                    <input type="password" id="modalPassword" class="form-input">
+                    <small class="form-hint">Laisser vide pour ne pas changer</small>
                 </div>
                 <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="modalIsAdmin">
-                        Administrateur
+                    <label class="form-checkbox-label">
+                        <input type="checkbox" id="modalIsAdmin" class="form-checkbox">
+                        <span>Administrateur</span>
                     </label>
                 </div>
                 <div class="modal-buttons">
-                    <button type="button" id="cancelBtn" class="btn btn-secondary">Annuler</button>
-                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Modal Confirmation de suppression -->
     <div id="deleteModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <h3>Supprimer l'utilisateur</h3>
+            <h3><i class="fas fa-exclamation-triangle"></i> Supprimer l'utilisateur</h3>
             <p id="deleteConfirmText"></p>
             <div class="modal-buttons">
-                <button type="button" id="deleteCancelBtn" class="btn btn-secondary">Annuler</button>
-                <button type="button" id="deleteConfirmBtn" class="btn btn-danger">Supprimer</button>
+                <button type="button" id="deleteCancelBtn" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Annuler
+                </button>
+                <button type="button" id="deleteConfirmBtn" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Supprimer
+                </button>
             </div>
         </div>
     </div>
 
     <style>
+        /* Modal styles */
         .modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
         .modal-content {
-            background: white;
+            background: var(--card-bg, #ffffff);
             padding: 2rem;
             border-radius: 8px;
             max-width: 500px;
-            width: 100%;
-        }
-        .admin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-        .data-table th, .data-table td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        .data-table th {
-            background-color: #f5f5f5;
-        }
-        .data-table tr:hover {
-            background-color: #f9f9f9;
-        }
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
+            width: 90%;
+            color: var(--text, #1a1d29);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         .modal-buttons {
             display: flex;
             gap: 1rem;
             justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table th {
+            background: var(--read-bg);
+            font-weight: 600;
+        }
+        .data-table tr:hover {
+            background: var(--read-bg);
+        }
+        .error-message {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .error-message:not(:empty) {
+            display: block;
+        }
+        .success-message {
+            color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .success-message:not(:empty) {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(25, 51, 134, 0.1);
+        }
+        .form-hint {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+        .form-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        .form-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .btn-small {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        /* Override btn-danger for dark/red style */
+        .btn-danger {
+            background: var(--danger) !important;
+            color: white !important;
+            border-color: var(--danger) !important;
+        }
+        .btn-danger:hover {
+            background: #dc2626 !important;
+            border-color: #dc2626 !important;
+        }
+        /* Badge pour admin */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge.admin {
+            background: rgba(25, 51, 134, 0.1);
+            color: var(--primary);
+        }
+        /* Fix modal backdrop */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.6) !important;
         }
     </style>
 
     <script>
         let currentUserId = 0;
 
-        // Load users on page load
+        // Charger les utilisateurs au chargement de la page
         async function loadUsers() {
             try {
                 const response = await fetch('/api/users');
                 if (!response.ok) {
-                    throw new Error('Failed to load users');
+                    throw new Error('Échec du chargement des utilisateurs');
                 }
                 const users = await response.json();
                 renderUsers(users);
             } catch (error) {
-                document.getElementById('errorMessage').textContent = error.message;
+                showError(error.message);
             }
         }
 
@@ -168,20 +303,47 @@
             const tbody = document.getElementById('usersTableBody');
             tbody.innerHTML = '';
 
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun utilisateur trouvé</td></tr>';
+                return;
+            }
+
             users.forEach(user => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${user.id}</td>
-                    <td>${user.username}</td>
-                    <td>${user.is_admin ? 'Oui' : 'Non'}</td>
-                    <td>${new Date(user.created_at).toLocaleString()}</td>
+                    <td><strong>${escapeHtml(user.username)}</strong></td>
+                    <td>${user.is_admin ? '<span class="badge admin">Oui</span>' : 'Non'}</td>
+                    <td>${new Date(user.created_at).toLocaleDateString('fr-FR')}</td>
                     <td>
-                        <button onclick="editUser(${user.id})" class="btn btn-secondary">Modifier</button>
-                        <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn btn-danger">Supprimer</button>
+                        <button onclick="editUser(${user.id})" class="btn btn-secondary btn-small" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')" class="btn btn-danger btn-small" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            setTimeout(() => el.textContent = '', 5000);
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            setTimeout(() => el.textContent = '', 5000);
         }
 
         function addUser() {
@@ -192,12 +354,16 @@
             document.getElementById('modalPassword').value = '';
             document.getElementById('modalIsAdmin').checked = false;
             document.getElementById('userModal').style.display = 'flex';
+            document.getElementById('modalUsername').focus();
         }
 
         function editUser(id) {
             currentUserId = id;
             fetch(`/api/users/${id}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('Utilisateur non trouvé');
+                    return response.json();
+                })
                 .then(user => {
                     document.getElementById('modalTitle').textContent = 'Modifier l\'utilisateur';
                     document.getElementById('userId').value = user.id;
@@ -205,27 +371,34 @@
                     document.getElementById('modalPassword').value = '';
                     document.getElementById('modalIsAdmin').checked = user.is_admin;
                     document.getElementById('userModal').style.display = 'flex';
+                    document.getElementById('modalUsername').focus();
                 })
-                .catch(error => {
-                    document.getElementById('errorMessage').textContent = error.message;
-                });
+                .catch(error => showError(error.message));
         }
 
         function deleteUser(id, username) {
             currentUserId = id;
-            document.getElementById('deleteConfirmText').textContent = `Êtes-vous sûr de vouloir supprimer l'utilisateur "${username}" ?`;
+            document.getElementById('deleteConfirmText').innerHTML = `
+                <i class="fas fa-exclamation-circle"></i> Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>${escapeHtml(username)}</strong> ?
+            `;
             document.getElementById('deleteModal').style.display = 'flex';
         }
 
+        // Event listeners
         document.getElementById('addUserBtn').addEventListener('click', addUser);
 
         document.getElementById('userForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const userId = document.getElementById('userId').value;
-            const username = document.getElementById('modalUsername').value;
+            const username = document.getElementById('modalUsername').value.trim();
             const password = document.getElementById('modalPassword').value;
             const isAdmin = document.getElementById('modalIsAdmin').checked;
+
+            if (!username) {
+                showError('Le nom d\'utilisateur est obligatoire');
+                return;
+            }
 
             try {
                 let url, method;
@@ -236,11 +409,9 @@
                 }
 
                 if (userId) {
-                    // Update
                     url = `/api/users/${userId}`;
                     method = 'PUT';
                 } else {
-                    // Create
                     url = '/api/users';
                     method = 'POST';
                 }
@@ -253,20 +424,18 @@
 
                 if (!response.ok) {
                     const data = await response.json();
-                    throw new Error(data.message || 'Erreur');
+                    throw new Error(data.message || 'Erreur lors de la sauvegarde');
                 }
 
-                document.getElementById('successMessage').textContent = userId ? 'Utilisateur mis à jour' : 'Utilisateur créé';
-                document.getElementById('userModal').style.display = 'none';
+                showSuccess(userId ? 'Utilisateur mis à jour avec succès' : 'Utilisateur créé avec succès');
+                closeModals();
                 loadUsers();
             } catch (error) {
-                document.getElementById('errorMessage').textContent = error.message;
+                showError(error.message);
             }
         });
 
-        document.getElementById('cancelBtn').addEventListener('click', () => {
-            document.getElementById('userModal').style.display = 'none';
-        });
+        document.getElementById('cancelBtn').addEventListener('click', closeModals);
 
         document.getElementById('deleteCancelBtn').addEventListener('click', () => {
             document.getElementById('deleteModal').style.display = 'none';
@@ -282,21 +451,39 @@
 
                 if (!response.ok) {
                     const data = await response.json();
-                    throw new Error(data.message || 'Erreur');
+                    throw new Error(data.message || 'Erreur lors de la suppression');
                 }
 
-                document.getElementById('successMessage').textContent = 'Utilisateur supprimé';
-                document.getElementById('deleteModal').style.display = 'none';
+                showSuccess('Utilisateur supprimé avec succès');
+                closeModals();
                 loadUsers();
             } catch (error) {
-                document.getElementById('errorMessage').textContent = error.message;
-                document.getElementById('deleteModal').style.display = 'none';
+                showError(error.message);
+                closeModals();
             }
         });
 
-        // Load users when page loads
+        function closeModals() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('deleteModal').style.display = 'none';
+        }
+
+        // Fermer les modales en cliquant à l'extérieur
+        document.getElementById('userModal').addEventListener('click', (e) => {
+            if (e.target.id === 'userModal') closeModals();
+        });
+        document.getElementById('deleteModal').addEventListener('click', (e) => {
+            if (e.target.id === 'deleteModal') closeModals();
+        });
+
+        // Fermer avec la touche Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModals();
+        });
+
+        // Charger les utilisateurs au chargement de la page
         loadUsers();
     </script>
 </body>
+
 </html>
-{{end}}
