@@ -266,6 +266,99 @@ curl -X POST http://localhost:8081/api/refresh \
   -d '{"refresh_token": "<your-refresh-token>"}'
 ```
 
+## User Management
+
+FeedFusion now supports multi-user management. Each user has their own feeds and items.
+
+### Features
+- Each user can only see and manage their own feeds
+- Admin users can manage all users
+- Public registration can be enabled or disabled
+- Password change functionality
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALLOW_REGISTRATION` | false | Enable public user registration |
+
+### Configuration via YAML
+
+Add to `data/config.yaml`:
+```yaml
+allow_registration: true  # Enable public registration
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/register` | Register a new user | Public (if enabled) |
+| GET | `/api/users` | List all users | Admin |
+| POST | `/api/users` | Create a new user | Admin |
+| GET | `/api/users/{id}` | Get user details | Admin or Self |
+| PUT | `/api/users/{id}` | Update user | Admin or Self |
+| DELETE | `/api/users/{id}` | Delete user | Admin |
+| POST | `/api/users/{id}/password` | Change password | Admin or Self |
+
+### Register a new user
+
+```bash
+curl -X POST http://localhost:8081/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "newuser", "password": "mypassword"}'
+```
+
+### Create a user (admin only)
+
+```bash
+curl -X POST http://localhost:8081/api/users \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "newuser", "password": "mypassword", "is_admin": false}'
+```
+
+### List all users (admin only)
+
+```bash
+curl -X GET http://localhost:8081/api/users \
+  -H "Authorization: Bearer <admin-token>"
+```
+
+### Get user details
+
+```bash
+curl -X GET http://localhost:8081/api/users/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+### Update user
+
+```bash
+curl -X PUT http://localhost:8081/api/users/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "updatedname", "is_admin": true}'
+```
+
+### Change password
+
+```bash
+curl -X POST http://localhost:8081/api/users/1/password \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"current_password": "oldpassword", "new_password": "newpassword"}'
+```
+
+**Note**: When changing your own password, you must provide `current_password`. Admin users can change other users' passwords without providing the current password.
+
+### Delete user (admin only)
+
+```bash
+curl -X DELETE http://localhost:8081/api/users/1 \
+  -H "Authorization: Bearer <admin-token>"
+```
+
 ## Configuration via Environment Variables
 
 | Variable | Default | Description |

@@ -1,0 +1,302 @@
+{{define "users"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des utilisateurs - FeedFusion</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>FeedFusion</h1>
+            <p>Gestion des utilisateurs</p>
+        </header>
+
+        <nav class="breadcrumb">
+            <a href="/">Accueil</a> &gt; Utilisateurs
+        </nav>
+
+        <main>
+            <div class="admin-header">
+                <h2>Utilisateurs</h2>
+                <button id="addUserBtn" class="btn btn-primary">Ajouter un utilisateur</button>
+            </div>
+
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom d'utilisateur</th>
+                        <th>Administrateur</th>
+                        <th>Date de création</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <!-- Users will be loaded here -->
+                </tbody>
+            </table>
+        </main>
+
+        <footer>
+            <p><a href="/">Retour à l'accueil</a></p>
+        </footer>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="modalTitle">Ajouter un utilisateur</h3>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label for="modalUsername">Nom d'utilisateur</label>
+                    <input type="text" id="modalUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="modalPassword">Mot de passe</label>
+                    <input type="password" id="modalPassword">
+                    <small>Laisser vide pour ne pas changer</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="modalIsAdmin">
+                        Administrateur
+                    </label>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Supprimer l'utilisateur</h3>
+            <p id="deleteConfirmText"></p>
+            <div class="modal-buttons">
+                <button type="button" id="deleteCancelBtn" class="btn btn-secondary">Annuler</button>
+                <button type="button" id="deleteConfirmBtn" class="btn btn-danger">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 100%;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .data-table th {
+            background-color: #f5f5f5;
+        }
+        .data-table tr:hover {
+            background-color: #f9f9f9;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+    </style>
+
+    <script>
+        let currentUserId = 0;
+
+        // Load users on page load
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) {
+                    throw new Error('Failed to load users');
+                }
+                const users = await response.json();
+                renderUsers(users);
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = error.message;
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.is_admin ? 'Oui' : 'Non'}</td>
+                    <td>${new Date(user.created_at).toLocaleString()}</td>
+                    <td>
+                        <button onclick="editUser(${user.id})" class="btn btn-secondary">Modifier</button>
+                        <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn btn-danger">Supprimer</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function addUser() {
+            currentUserId = 0;
+            document.getElementById('modalTitle').textContent = 'Ajouter un utilisateur';
+            document.getElementById('userId').value = '';
+            document.getElementById('modalUsername').value = '';
+            document.getElementById('modalPassword').value = '';
+            document.getElementById('modalIsAdmin').checked = false;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function editUser(id) {
+            currentUserId = id;
+            fetch(`/api/users/${id}`)
+                .then(response => response.json())
+                .then(user => {
+                    document.getElementById('modalTitle').textContent = 'Modifier l\'utilisateur';
+                    document.getElementById('userId').value = user.id;
+                    document.getElementById('modalUsername').value = user.username;
+                    document.getElementById('modalPassword').value = '';
+                    document.getElementById('modalIsAdmin').checked = user.is_admin;
+                    document.getElementById('userModal').style.display = 'flex';
+                })
+                .catch(error => {
+                    document.getElementById('errorMessage').textContent = error.message;
+                });
+        }
+
+        function deleteUser(id, username) {
+            currentUserId = id;
+            document.getElementById('deleteConfirmText').textContent = `Êtes-vous sûr de vouloir supprimer l'utilisateur "${username}" ?`;
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        document.getElementById('addUserBtn').addEventListener('click', addUser);
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userId = document.getElementById('userId').value;
+            const username = document.getElementById('modalUsername').value;
+            const password = document.getElementById('modalPassword').value;
+            const isAdmin = document.getElementById('modalIsAdmin').checked;
+
+            try {
+                let url, method;
+                let body = { username, is_admin: isAdmin };
+
+                if (password) {
+                    body.password = password;
+                }
+
+                if (userId) {
+                    // Update
+                    url = `/api/users/${userId}`;
+                    method = 'PUT';
+                } else {
+                    // Create
+                    url = '/api/users';
+                    method = 'POST';
+                }
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur');
+                }
+
+                document.getElementById('successMessage').textContent = userId ? 'Utilisateur mis à jour' : 'Utilisateur créé';
+                document.getElementById('userModal').style.display = 'none';
+                loadUsers();
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = error.message;
+            }
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            document.getElementById('userModal').style.display = 'none';
+        });
+
+        document.getElementById('deleteCancelBtn').addEventListener('click', () => {
+            document.getElementById('deleteModal').style.display = 'none';
+        });
+
+        document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+            if (currentUserId === 0) return;
+
+            try {
+                const response = await fetch(`/api/users/${currentUserId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur');
+                }
+
+                document.getElementById('successMessage').textContent = 'Utilisateur supprimé';
+                document.getElementById('deleteModal').style.display = 'none';
+                loadUsers();
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = error.message;
+                document.getElementById('deleteModal').style.display = 'none';
+            }
+        });
+
+        // Load users when page loads
+        loadUsers();
+    </script>
+</body>
+</html>
+{{end}}

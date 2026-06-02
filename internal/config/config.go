@@ -21,10 +21,11 @@ type WeatherCity struct {
 }
 
 type Config struct {
-	ServerPort    int            `yaml:"server_port"`
-	MistralAPIKey string         `yaml:"mistral_api_key"`
-	Feeds         []FeedConfig  `yaml:"feeds"`
-	WeatherCities []WeatherCity `yaml:"weather_cities"`
+	ServerPort      int     `yaml:"server_port"`
+	MistralAPIKey   string  `yaml:"mistral_api_key"`
+	AllowRegistration bool   `yaml:"allow_registration"`
+	Feeds          []FeedConfig  `yaml:"feeds"`
+	WeatherCities  []WeatherCity `yaml:"weather_cities"`
 }
 
 func LoadConfig(path string) (*Config, error) {

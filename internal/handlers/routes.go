@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/config"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
@@ -59,13 +60,34 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 		tmpl.ExecuteTemplate(w, "settings.html", nil)
 	})
 
-	// Protected routes
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Check if user is authenticated
-		if _, err := r.Cookie("token"); err != nil {
+	// Users management page - admin only
+	r.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+		// Check if user is authenticated and admin
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
+
+		// Check if admin
+		if !claims.IsAdmin {
+			http.Error(w, "Access denied", http.StatusForbidden)
+			return
+		}
+
+		tmpl.ExecuteTemplate(w, "users.html", nil)
+	})
+
+	// Protected routes
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context (set by auth middleware)
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		userID := claims.UserID
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		if limit == 0 {
 			limit = 20
@@ -94,27 +116,31 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 			feedIDStr := strings.TrimPrefix(filterMode, "feed:")
 			feedID, err := strconv.ParseUint(feedIDStr, 10, 32)
 			if err == nil {
-				feedIDs = []uint{uint(feedID)}
+				// Verify feed belongs to user
+				_, err := storage.GetFeedByIDAndUser(db, uint(feedID), userID)
+				if err == nil {
+					feedIDs = []uint{uint(feedID)}
+				}
 			}
 		} else if filterMode == "all" {
-			// Get all feed IDs
-			allFeeds, _ := storage.GetAllFeeds(db)
+			// Get all feed IDs for this user
+			allFeeds, _ := storage.GetAllFeedsByUser(db, userID)
 			for _, f := range allFeeds {
 				feedIDs = append(feedIDs, f.ID)
 			}
 		} else {
 			// Get only included feeds (default)
-			includedFeeds, _ := storage.GetIncludedFeeds(db)
+			includedFeeds, _ := storage.GetIncludedFeedsByUser(db, userID)
 			for _, f := range includedFeeds {
 				feedIDs = append(feedIDs, f.ID)
 			}
 		}
 
-		items, count, _ := storage.GetFilteredItemsByRead(db, limit, offset, showRead, feedIDs)
+		items, count, _ := storage.GetFilteredItemsByReadAndUser(db, limit, offset, showRead, feedIDs, userID)
 
 		// Load feed titles for display
 		feedMap := make(map[uint]string)
-		allFeeds, _ := storage.GetAllFeeds(db)
+		allFeeds, _ := storage.GetAllFeedsByUser(db, userID)
 		// Sort feeds by last fetch date (most recent first)
 		for i := 0; i < len(allFeeds)-1; i++ {
 			for j := i + 1; j < len(allFeeds); j++ {
@@ -131,7 +157,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 		}
 
 		// Get included feed IDs for checkboxes
-		includedFeeds, _ := storage.GetIncludedFeeds(db)
+		includedFeeds, _ := storage.GetIncludedFeedsByUser(db, userID)
 		var includedIDs []uint
 		for _, f := range includedFeeds {
 			includedIDs = append(includedIDs, f.ID)
@@ -205,6 +231,13 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	})
 
 	r.HandleFunc("/add-feed", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		if r.Method == "POST" {
 			url := r.FormValue("url")
 			if url != "" {
@@ -214,7 +247,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 					return
 				}
 				feed.Include = true
-				storage.AddFeed(db, feed, items)
+				storage.AddFeedForUser(db, feed, items, claims.UserID)
 			}
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -223,18 +256,38 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	})
 
 	r.HandleFunc("/item/{id}/read", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		storage.MarkItemAsRead(db, uint(id))
+		if err := storage.MarkItemAsReadForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 		// Preserve query params and redirect back
 		query := r.URL.Query()
 		http.Redirect(w, r, "/?"+query.Encode(), http.StatusSeeOther)
 	})
 
 	r.HandleFunc("/item/{id}/read-and-redirect", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		storage.MarkItemAsRead(db, uint(id))
+		if err := storage.MarkItemAsReadForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 
 		// Get the target URL from query param
 		targetURL := r.URL.Query().Get("url")
@@ -254,18 +307,38 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
 	// Mark as unread
 	r.HandleFunc("/item/{id}/unread", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		storage.MarkItemAsUnread(db, uint(id))
+		if err := storage.MarkItemAsUnreadForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 		// Preserve query params
 		query := r.URL.Query()
 		http.Redirect(w, r, "/?"+query.Encode(), http.StatusSeeOther)
 	})
 
 	r.HandleFunc("/feed/{id}/toggle", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		storage.ToggleFeedInclude(db, uint(id))
+		if err := storage.ToggleFeedIncludeForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 		// Redirect back to the referring page, or to home if no referer
 		referer := r.Referer()
 		if referer != "" {
@@ -279,33 +352,61 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	})
 
 	r.HandleFunc("/feed/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		storage.DeleteFeed(db, uint(id))
+		if err := storage.DeleteFeedForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 		http.Redirect(w, r, "/feeds", http.StatusSeeOther)
 	})
 
 	r.HandleFunc("/feed/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
 
 		if r.Method == "POST" {
-			feed, _ := storage.GetFeedByID(db, uint(id))
+			feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+			if err != nil {
+				http.Error(w, "Feed not found or access denied", http.StatusForbidden)
+				return
+			}
 			feed.URL = r.FormValue("url")
 			feed.Title = r.FormValue("title")
 			feed.Include = r.FormValue("include") == "on"
-			storage.UpdateFeed(db, feed)
+			if err := storage.UpdateFeedForUser(db, feed, claims.UserID); err != nil {
+				http.Error(w, err.Error(), http.StatusForbidden)
+				return
+			}
 
 			_, items, err := parser.ParseFeed(feed.URL)
 			if err == nil {
-				storage.AddFeed(db, feed, items)
+				storage.AddFeedForUser(db, feed, items, claims.UserID)
 			}
 
 			http.Redirect(w, r, "/feeds", http.StatusSeeOther)
 			return
 		}
 
-		feed, _ := storage.GetFeedByID(db, uint(id))
+		feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+		if err != nil {
+			http.Error(w, "Feed not found or access denied", http.StatusForbidden)
+			return
+		}
 		tmpl.ExecuteTemplate(w, "edit_feed.html", struct {
 			Feed *models.Feed
 		}{
@@ -321,7 +422,14 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	})
 
 	r.HandleFunc("/feeds", func(w http.ResponseWriter, r *http.Request) {
-		feeds, _ := storage.GetAllFeeds(db)
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		feeds, _ := storage.GetAllFeedsByUser(db, claims.UserID)
 		tmpl.ExecuteTemplate(w, "feeds.html", feeds)
 	})
 
@@ -330,11 +438,18 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 
 	// WebSub subscription management
 	r.HandleFunc("/websub/subscribe/{id}", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		feed, _ := storage.GetFeedByID(db, uint(id))
-		if feed == nil {
-			http.Error(w, "Feed not found", http.StatusNotFound)
+		feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+		if err != nil || feed == nil {
+			http.Error(w, "Feed not found or access denied", http.StatusNotFound)
 			return
 		}
 
@@ -353,11 +468,18 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB) {
 	})
 
 	r.HandleFunc("/websub/unsubscribe/{id}", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
-		feed, _ := storage.GetFeedByID(db, uint(id))
-		if feed == nil {
-			http.Error(w, "Feed not found", http.StatusNotFound)
+		feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+		if err != nil || feed == nil {
+			http.Error(w, "Feed not found or access denied", http.StatusNotFound)
 			return
 		}
 

@@ -27,11 +27,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Auto-migrate with new WebSub fields and auth tables
-	err = db.AutoMigrate(&models.Feed{}, &models.Item{}, &auth.User{})
-	if err != nil {
-		log.Printf("Warning: auto-migration failed: %v", err)
-	}
+	// Run migration for multi-user support
+	migrateToMultiUser(db)
 
 	// Initialize JWT config from environment or defaults
 	jwtConfig := auth.DefaultJWTConfig()
@@ -44,6 +41,9 @@ func main() {
 
 	// Load config and add preconfigured feeds
 	loadConfigFeeds(db)
+
+	// Configure registration
+	configureRegistration()
 
 	// Start WebSub manager
 	callbackBaseURL := "http://localhost:8080"
@@ -116,10 +116,17 @@ func loadConfigFeeds(db *gorm.DB) {
 
 	log.Printf("Loading %d preconfigured feeds from data/config.yaml", len(cfg.Feeds))
 
+	// Get admin user ID to assign feeds to
+	var adminUser models.User
+	if err := db.Where("is_admin = ?", true).First(&adminUser).Error; err != nil {
+		log.Printf("Warning: No admin user found, cannot assign preconfigured feeds")
+		return
+	}
+
 	for _, feedCfg := range cfg.Feeds {
-		// Check if feed already exists
+		// Check if feed already exists for this admin
 		var existingFeed models.Feed
-		err := db.Where("url = ?", feedCfg.URL).First(&existingFeed).Error
+		err := db.Where("url = ? AND user_id = ?", feedCfg.URL, adminUser.ID).First(&existingFeed).Error
 		if err == nil {
 			// Feed exists, just update if needed
 			if feedCfg.Title != "" && feedCfg.Title != existingFeed.Title {
@@ -131,12 +138,13 @@ func loadConfigFeeds(db *gorm.DB) {
 			db.Save(&existingFeed)
 			log.Printf("Updated existing feed: %s", feedCfg.URL)
 		} else {
-			// Create new feed
+			// Create new feed for admin
 			feed := &models.Feed{
 				URL:      feedCfg.URL,
 				Title:    feedCfg.Title,
 				Include:  feedCfg.Include,
 				IsActive: true,
+				UserID:   adminUser.ID,
 			}
 			// Parse and add items
 			_, items, err := parser.ParseFeed(feed.URL)
@@ -145,19 +153,54 @@ func loadConfigFeeds(db *gorm.DB) {
 				// Still save the feed even if we can't fetch it now
 				db.Create(feed)
 			} else {
-				storage.AddFeed(db, feed, items)
+				storage.AddFeedForUser(db, feed, items, adminUser.ID)
 			}
 			log.Printf("Added new feed: %s", feedCfg.URL)
 		}
 	}
 }
 
-// createFirstAdmin creates a default admin user if no users exist
-func createFirstAdmin(db *gorm.DB) {
+// migrateToMultiUser handles database migration for multi-user support
+func migrateToMultiUser(db *gorm.DB) {
+	// Check if user_id column exists in feeds table
 	var count int64
-	db.Model(&auth.User{}).Count(&count)
+	db.Raw("SELECT COUNT(*) FROM pragma_table_info('feeds') WHERE name = 'user_id'").Count(&count)
+	
+	if count == 0 {
+		// Add user_id column with default value 1 (will be assigned to admin)
+		if err := db.Exec("ALTER TABLE feeds ADD COLUMN user_id INTEGER DEFAULT 1").Error; err != nil {
+			log.Printf("Error adding user_id column: %v", err)
+			return
+		}
+		
+		// Create index on user_id for better performance
+		if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
+			log.Printf("Error creating index: %v", err)
+		}
+	}
+	
+	// Auto-migrate User table
+	if err := db.AutoMigrate(&models.User{}); err != nil {
+		log.Printf("Warning: User table migration failed: %v", err)
+	}
+	
+	// Assign existing feeds (with user_id=0 or NULL) to admin
+	// We'll do this after admin is created
+}
+
+// createFirstAdmin creates a default admin user if no users exist
+// Returns the admin user's ID
+func createFirstAdmin(db *gorm.DB) uint {
+	var count int64
+	db.Model(&models.User{}).Count(&count)
 	if count > 0 {
-		return
+		// Admin already exists, return first admin user's ID
+		var admin models.User
+		if err := db.Where("is_admin = ?", true).First(&admin).Error; err == nil {
+			return admin.ID
+		}
+		// If no admin but users exist, return 0
+		return 0
 	}
 
 	// Create default admin user
@@ -175,10 +218,10 @@ func createFirstAdmin(db *gorm.DB) {
 	hashedPassword, err := auth.HashPassword(adminPassword)
 	if err != nil {
 		log.Printf("Error creating admin user: %v", err)
-		return
+		return 0
 	}
 
-	admin := auth.User{
+	admin := models.User{
 		Username: adminUsername,
 		Password: hashedPassword,
 		IsAdmin:  true,
@@ -186,9 +229,42 @@ func createFirstAdmin(db *gorm.DB) {
 
 	if err := db.Create(&admin).Error; err != nil {
 		log.Printf("Error creating admin user: %v", err)
+		return 0
 	}
 
 	log.Printf("Created first admin user: %s", adminUsername)
+	
+	// Assign existing feeds to this admin
+	if err := db.Model(&models.Feed{}).
+		Where("user_id IS NULL OR user_id = 0 OR user_id = 1").
+		Update("user_id", admin.ID).Error; err != nil {
+		log.Printf("Warning: Could not assign existing feeds to admin: %v", err)
+	}
+	
+	return admin.ID
+}
+
+// configureRegistration sets up the registration flag based on environment/config
+func configureRegistration() {
+	// Check environment variable first
+	allowReg := os.Getenv("ALLOW_REGISTRATION")
+	if allowReg == "true" {
+		auth.SetAllowRegistration(true)
+		log.Println("Public registration is enabled (via ALLOW_REGISTRATION=true)")
+		return
+	}
+
+	// Check config file
+	cfg, err := config.LoadConfig("data/config.yaml")
+	if err == nil && cfg.AllowRegistration {
+		auth.SetAllowRegistration(true)
+		log.Println("Public registration is enabled (via config file)")
+		return
+	}
+
+	// Default: disabled
+	auth.SetAllowRegistration(false)
+	log.Println("Public registration is disabled (admin must create users)")
 }
 
 // newStaticHandler creates a file server that sets proper Content-Type headers
