@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- JS par fonctionnalité -->
     <script src="/static/js/theme.js"></script>
+    <script src="/static/js/sidebar.js"></script>
+    <script src="/static/js/admin.js"></script>
 </head>
 
 <body>
@@ -46,17 +48,7 @@
                 <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
             </div>
             <script>
-                // Vérifier si l'utilisateur est admin et afficher le lien utilisateurs
-                async function checkAdminStatus() {
-                    try {
-                        const response = await fetch('/api/users');
-                        if (response.ok) {
-                            document.getElementById('usersLink').style.display = 'block';
-                        }
-                    } catch (error) {
-                        console.log('Not admin or error:', error);
-                    }
-                }
+                // Initialiser au chargement
                 document.addEventListener('DOMContentLoaded', checkAdminStatus);
             </script>
         </aside>

@@ -13,25 +13,13 @@
     <script src="/static/js/sidebar.js"></script>
     <script src="/static/js/tts.js"></script>
     <script src="/static/js/settings.js"></script>
+    <script src="/static/js/admin.js"></script>
     <script>
         // Initialiser les modules au chargement
         document.addEventListener('DOMContentLoaded', function() {
             initSettingsPage();
             checkAdminStatus();
         });
-        
-        // Vérifier si l'utilisateur est admin et afficher le lien utilisateurs
-        async function checkAdminStatus() {
-            try {
-                const response = await fetch('/api/users');
-                if (response.ok) {
-                    // Si on peut accéder à /api/users, c'est qu'on est admin
-                    document.getElementById('usersLink').style.display = 'block';
-                }
-            } catch (error) {
-                console.log('Not admin or error:', error);
-            }
-        }
     </script>
 </head>
 
