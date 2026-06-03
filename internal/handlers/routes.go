@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"rss-aggregator/internal/auth"
@@ -271,8 +272,13 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 			return
 		}
 
+		// Charger les catégories pour le template
+		categories, _ := storage.GetAllCategoriesByUser(db, claims.UserID)
+
 		if r.Method == "POST" {
 			url := r.FormValue("url")
+			categoryIDStr := r.FormValue("category_id")
+			
 			if url != "" {
 				feed, items, err := parser.ParseFeed(url)
 				if err != nil {
@@ -280,12 +286,32 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 					return
 				}
 				feed.Include = true
-				storage.AddFeedForUser(db, feed, items, claims.UserID)
+				feed.UserID = claims.UserID
+				
+				// Ajouter le flux
+				err = storage.AddFeedForUser(db, feed, items, claims.UserID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				
+				// Si une catégorie a été sélectionnée, l'assigner au flux
+				if categoryIDStr != "" && categoryIDStr != "0" {
+					categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+					if err == nil {
+						err = storage.AssignFeedToCategory(db, feed.ID, uint(categoryID), claims.UserID)
+						if err != nil {
+							// Ne pas bloquer la création du flux si l'assignation échoue
+							// Mais logger l'erreur
+							log.Printf("Warning: Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+						}
+					}
+				}
 			}
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			http.Redirect(w, r, "/feeds", http.StatusSeeOther)
 			return
 		}
-		tmpl.ExecuteTemplate(w, "add_feed.html", nil)
+		tmpl.ExecuteTemplate(w, "add_feed.html", categories)
 	})
 
 	r.HandleFunc("/item/{id}/read", func(w http.ResponseWriter, r *http.Request) {
@@ -412,6 +438,9 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 		vars := mux.Vars(r)
 		id, _ := strconv.ParseUint(vars["id"], 10, 32)
 
+		// Charger les catégories pour le template
+		categories, _ := storage.GetAllCategoriesByUser(db, claims.UserID)
+
 		if r.Method == "POST" {
 			feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
 			if err != nil {
@@ -421,6 +450,34 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 			feed.URL = r.FormValue("url")
 			feed.Title = r.FormValue("title")
 			feed.Include = r.FormValue("include") == "on"
+			
+			// Gérer la catégorie
+			categoryIDStr := r.FormValue("category_id")
+			if categoryIDStr != "" && categoryIDStr != "0" {
+				categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+				if err == nil {
+					// Assigner à la nouvelle catégorie
+					err = storage.AssignFeedToCategory(db, feed.ID, uint(categoryID), claims.UserID)
+					if err != nil {
+						log.Printf("Warning: Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+					}
+				} else {
+					// Retirer de toute catégorie (catégorie 0 sélectionnée)
+					if categoryIDStr == "0" {
+						err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
+						if err != nil {
+							log.Printf("Warning: Failed to remove feed %d from category: %v", feed.ID, err)
+						}
+					}
+				}
+			} else {
+				// Retirer de toute catégorie (champ vide = pas de catégorie)
+				err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
+				if err != nil {
+					log.Printf("Warning: Failed to remove feed %d from category: %v", feed.ID, err)
+				}
+			}
+			
 			if err := storage.UpdateFeedForUser(db, feed, claims.UserID); err != nil {
 				http.Error(w, err.Error(), http.StatusForbidden)
 				return
@@ -440,10 +497,21 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 			http.Error(w, "Feed not found or access denied", http.StatusForbidden)
 			return
 		}
+		
+		// Get current category ID (if any)
+		var currentCategoryID uint = 0
+		if feed.CategoryID != nil {
+			currentCategoryID = *feed.CategoryID
+		}
+		
 		tmpl.ExecuteTemplate(w, "edit_feed.html", struct {
-			Feed *models.Feed
+			Feed           *models.Feed
+			Categories     []models.Category
+			CurrentCategoryID uint
 		}{
-			Feed: feed,
+			Feed:           feed,
+			Categories:     categories,
+			CurrentCategoryID: currentCategoryID,
 		})
 	})
 

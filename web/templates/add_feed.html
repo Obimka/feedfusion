@@ -74,6 +74,26 @@
                     Entrez l'URL de votre flux RSS, Atom ou JSON Feed.
                 </p>
 
+                {{if .}}
+                <form action="/add-feed" method="POST" class="form-group">
+                    <div class="form-row">
+                        <input type="url" name="url" class="form-input" placeholder="https://exemple.com/feed.xml"
+                            required>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Ajouter
+                        </button>
+                    </div>
+                    <div class="form-row" style="margin-top: 1rem;">
+                        <label for="category_id" class="form-label">Catégorie :</label>
+                        <select name="category_id" id="category_id" class="form-select">
+                            <option value="">-- Aucune catégorie --</option>
+                            {{range .}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </form>
+                {{else}}
                 <form action="/add-feed" method="POST" class="form-group">
                     <div class="form-row">
                         <input type="url" name="url" class="form-input" placeholder="https://exemple.com/feed.xml"
@@ -83,6 +103,7 @@
                         </button>
                     </div>
                 </form>
+                {{end}}
 
                 <div style="margin-top: 2rem;">
                     <h3><i class="fas fa-info-circle"></i> Exemples de flux :</h3>
