@@ -26,11 +26,23 @@
                     <a href="/feeds" class="filter-option-link">
                         <i class="fas fa-rss"></i> Gérer les flux
                     </a>
+                    <a href="/categories" class="filter-option-link">
+                        <i class="fas fa-tags"></i> Gérer les catégories
+                    </a>
                     <a href="/settings" class="filter-option-link">
                         <i class="fas fa-cog"></i> Paramètres
                     </a>
+                    <a href="/users" class="filter-option-link active" id="usersLink" style="display: block;">
+                        <i class="fas fa-users"></i> Gérer les utilisateurs
+                    </a>
                 </div>
             </div>
+            <script>
+                // Sur la page users, on est déjà admin, donc on affiche le lien
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.getElementById('usersLink').style.display = 'block';
+                });
+            </script>
             <div class="sidebar-footer">
                 <a href="/" class="btn" style="width: 100%; margin-top: 0.5rem;">
                     <i class="fas fa-arrow-left"></i> Retour
