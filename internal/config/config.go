@@ -24,6 +24,7 @@ type Config struct {
 	ServerPort      int     `yaml:"server_port"`
 	MistralAPIKey   string  `yaml:"mistral_api_key"`
 	AllowRegistration bool   `yaml:"allow_registration"`
+	LogLevel        string  `yaml:"log_level"`
 	Feeds          []FeedConfig  `yaml:"feeds"`
 	WeatherCities  []WeatherCity `yaml:"weather_cities"`
 }

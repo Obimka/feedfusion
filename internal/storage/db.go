@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/models"
 
 	"gorm.io/driver/sqlite"
@@ -9,10 +10,13 @@ import (
 )
 
 func InitDB(path string) (*gorm.DB, error) {
+	logger.Infof("Initializing database at: %s", path)
 	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
 	if err != nil {
+		logger.Errorf("Failed to open database: %v", err)
 		return nil, err
 	}
+	logger.Debugf("Database connection established successfully")
 
 	err = db.AutoMigrate(&models.Feed{}, &models.Item{}, &models.User{}, &models.Category{})
 	if err != nil {

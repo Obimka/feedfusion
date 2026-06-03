@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/models"
 	"strings"
 	"time"
@@ -20,11 +21,14 @@ const DefaultWebSubHub = "https://pubsubhubbub.appspot.com"
 
 // ParseFeed parses a feed URL and returns Feed and Items
 func ParseFeed(url string) (*models.Feed, []models.Item, error) {
+	logger.Debugf("Starting to parse feed: %s", url)
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(url)
 	if err != nil {
+		logger.Errorf("Error parsing feed %s: %v", url, err)
 		return nil, nil, err
 	}
+	logger.Debugf("Successfully parsed feed: %s (Title: %s)", url, feed.Title)
 
 	// Extract WebSub information from feed
 	feedURL := feed.Link

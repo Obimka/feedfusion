@@ -1,9 +1,9 @@
 package worker
 
 import (
-	"log"
 	"time"
 
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
@@ -36,7 +36,7 @@ func fetchAllFeeds(db *gorm.DB) {
 
 		parsedFeed, items, err := parser.ParseFeed(feed.URL)
 		if err != nil {
-			log.Printf("Error fetching %s: %v", feed.URL, err)
+			logger.Errorf("Error fetching %s: %v", feed.URL, err)
 			feed.Error = err.Error()
 			db.Save(&feed)
 			continue
@@ -55,6 +55,6 @@ func fetchAllFeeds(db *gorm.DB) {
 		feed.LastFetch = time.Now()
 		db.Save(&feed)
 		storage.AddFeed(db, parsedFeed, items)
-		log.Printf("Fetched %d items from %s (Hub: %v)", len(items), feed.URL, parsedFeed.HubURL != "")
+		logger.Infof("Fetched %d items from %s (Hub: %v)", len(items), feed.URL, parsedFeed.HubURL != "")
 	}
 }

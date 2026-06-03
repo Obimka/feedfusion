@@ -3,11 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"html/template"
-	"log"
 	"net/http"
 	"net/url"
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/config"
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
@@ -36,10 +36,13 @@ var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 }).ParseGlob("web/templates/*.html"))
 
 func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
+	logger.Infof("Registering routes...")
 	// Login page - public access
 	r.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing login page (Method: %s)", r.Method)
 		// If already logged in, redirect to home
 		if _, err := r.Cookie("token"); err == nil {
+			logger.Debugf("User already logged in, redirecting to home")
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
@@ -48,15 +51,18 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 
 	// Logout page - public access
 	r.HandleFunc("/logged-out", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing logged-out page")
 		tmpl.ExecuteTemplate(w, "logout.html", nil)
 	})
 
 	// Settings page - requires authentication
 	r.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing settings page")
 		// Check if user is authenticated via context (from auth middleware)
 		if _, ok := auth.GetUser(r.Context()); !ok {
 			// Fallback: check cookie for backward compatibility
 			if _, err := r.Cookie("token"); err != nil {
+				logger.Debugf("User not authenticated, redirecting to login")
 				http.Redirect(w, r, "/login", http.StatusSeeOther)
 				return
 			}
@@ -66,15 +72,18 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 
 	// Users management page - admin only
 	r.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing users management page")
 		// Check if user is authenticated and admin
 		claims, ok := auth.GetUser(r.Context())
 		if !ok {
+			logger.Debugf("User not authenticated, redirecting to login")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
 		// Check if admin
 		if !claims.IsAdmin {
+			logger.Debugf("User %d is not admin, access denied", claims.UserID)
 			http.Error(w, "Access denied", http.StatusForbidden)
 			return
 		}
@@ -84,9 +93,11 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 
 	// Protected routes
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing home page with query params: %s", r.URL.RawQuery)
 		// Get user from context (set by auth middleware)
 		claims, ok := auth.GetUser(r.Context())
 		if !ok {
+			logger.Debugf("User not authenticated, redirecting to login")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -303,7 +314,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 						if err != nil {
 							// Ne pas bloquer la création du flux si l'assignation échoue
 							// Mais logger l'erreur
-							log.Printf("Warning: Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+							logger.Warnf("Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
 						}
 					}
 				}
@@ -459,14 +470,14 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 					// Assigner à la nouvelle catégorie
 					err = storage.AssignFeedToCategory(db, feed.ID, uint(categoryID), claims.UserID)
 					if err != nil {
-						log.Printf("Warning: Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+						logger.Warnf("Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
 					}
 				} else {
 					// Retirer de toute catégorie (catégorie 0 sélectionnée)
 					if categoryIDStr == "0" {
 						err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
 						if err != nil {
-							log.Printf("Warning: Failed to remove feed %d from category: %v", feed.ID, err)
+							logger.Warnf("Failed to remove feed %d from category: %v", feed.ID, err)
 						}
 					}
 				}
@@ -474,7 +485,7 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 				// Retirer de toute catégorie (champ vide = pas de catégorie)
 				err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
 				if err != nil {
-					log.Printf("Warning: Failed to remove feed %d from category: %v", feed.ID, err)
+					logger.Warnf("Failed to remove feed %d from category: %v", feed.ID, err)
 				}
 			}
 			

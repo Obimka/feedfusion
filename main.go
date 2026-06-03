@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
+
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/config"
 	"rss-aggregator/internal/handlers"
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/tts"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
@@ -21,13 +22,16 @@ import (
 )
 
 func main() {
+	logger.Infof("Starting FeedFusion application...")
+
 	// Init storage
 	db, err := storage.InitDB("rss.db")
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalf("Failed to initialize database: %v", err)
 	}
 
 	// Run migration for multi-user support
+	logger.Infof("Running database migrations...")
 	migrateToMultiUser(db)
 
 	// Initialize JWT config from environment or defaults
@@ -37,19 +41,27 @@ func main() {
 	}
 
 	// Create first admin user if none exists
-	createFirstAdmin(db)
+	logger.Infof("Checking for admin user...")
+	adminID := createFirstAdmin(db)
+	if adminID > 0 {
+		logger.Infof("Admin user found/created (ID: %d)", adminID)
+	}
 
 	// Load config and add preconfigured feeds
+	logger.Infof("Loading preconfigured feeds...")
 	loadConfigFeeds(db)
 
 	// Configure registration
+	logger.Infof("Configuring registration...")
 	configureRegistration()
 
 	// Start WebSub manager
 	callbackBaseURL := "http://localhost:8080"
+	logger.Infof("Starting WebSub manager...")
 	go websub.StartWebSubManager(db, callbackBaseURL)
 
 	// Start worker (fetch feeds every 30min)
+	logger.Infof("Starting feed fetcher worker (every 30 minutes)...")
 	go worker.StartFeedFetcher(db, 30)
 
 	// Setup routes
@@ -63,21 +75,21 @@ func main() {
 	mistralAPIKey := ""
 	cfg, err := config.LoadConfig("data/config.yaml")
 	if err != nil {
-	    log.Printf("Warning: failed to load config: %v", err)
+	    logger.Warnf("Failed to load config: %v", err)
 	} else {
-	    log.Printf("Config loaded, MistralAPIKey present: %v", cfg.MistralAPIKey != "")
+	    logger.Infof("Config loaded, MistralAPIKey present: %v", cfg.MistralAPIKey != "")
 	}
 	if err == nil && cfg != nil && cfg.MistralAPIKey != "" {
 	    mistralAPIKey = cfg.MistralAPIKey
-	    log.Printf("TTS: Using API key from config file")
+	    logger.Infof("TTS: Using API key from config file")
 	} else if apiKey := os.Getenv("MISTRAL_API_KEY"); apiKey != "" {
 	    mistralAPIKey = apiKey
-	    log.Printf("TTS: Using API key from environment")
+	    logger.Infof("TTS: Using API key from environment")
 	}
 	if mistralAPIKey != "" {
 		ttsHandler := tts.NewTTSHandler(mistralAPIKey)
 		ttsHandler.RegisterRoutes(r)
-		log.Println("TTS enabled - Mistral API available")
+		logger.Infof("TTS enabled - Mistral API available")
 	}
 
 	// Register main handlers
@@ -97,16 +109,17 @@ func main() {
 		port = p
 	}
 
-	log.Printf("Server started on :%s", port)
-	log.Println("WebSub support enabled - feeds will receive push notifications when available")
-	log.Println("Authentication enabled - use /api/login endpoint")
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	logger.Infof("Server started on :%s", port)
+	logger.Infof("WebSub support enabled - feeds will receive push notifications when available")
+	logger.Infof("Authentication enabled - use /api/login endpoint")
+	http.ListenAndServe(":"+port, r)
 }
 
 func loadConfigFeeds(db *gorm.DB) {
+	logger.Infof("Loading preconfigured feeds from config...")
 	cfg, err := config.LoadConfig("data/config.yaml")
 	if err != nil {
-		log.Printf("Warning: could not load config: %v", err)
+		logger.Warnf("Could not load config: %v", err)
 		return
 	}
 
@@ -114,18 +127,18 @@ func loadConfigFeeds(db *gorm.DB) {
 		return
 	}
 
-	log.Printf("Loading %d preconfigured feeds from data/config.yaml", len(cfg.Feeds))
+	logger.Infof("Loading %d preconfigured feeds from data/config.yaml", len(cfg.Feeds))
 
 	// Get admin user ID to assign feeds to
 	var adminUser models.User
 	if err := db.Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
-		log.Printf("Warning: No admin user found, cannot assign preconfigured feeds: %v", err)
+		logger.Warnf("No admin user found, cannot assign preconfigured feeds: %v", err)
 		// Try to find any user as fallback
 		if err := db.Order("id ASC").First(&adminUser).Error; err != nil {
-			log.Printf("Warning: No users found at all, cannot assign preconfigured feeds")
+			logger.Warnf("No users found at all, cannot assign preconfigured feeds")
 			return
 		}
-		log.Printf("Warning: Using first user (ID: %d, admin: %v) for preconfigured feeds", adminUser.ID, adminUser.IsAdmin)
+		logger.Warnf("Using first user (ID: %d, admin: %v) for preconfigured feeds", adminUser.ID, adminUser.IsAdmin)
 	}
 
 	for _, feedCfg := range cfg.Feeds {
@@ -141,7 +154,7 @@ func loadConfigFeeds(db *gorm.DB) {
 				existingFeed.Include = feedCfg.Include
 			}
 			db.Save(&existingFeed)
-			log.Printf("Updated existing feed: %s", feedCfg.URL)
+			logger.Infof("Updated existing feed: %s", feedCfg.URL)
 		} else {
 			// Create new feed for admin
 			feed := &models.Feed{
@@ -154,13 +167,13 @@ func loadConfigFeeds(db *gorm.DB) {
 			// Parse and add items
 			_, items, err := parser.ParseFeed(feed.URL)
 			if err != nil {
-				log.Printf("Warning: could not parse feed %s: %v", feed.URL, err)
+				logger.Warnf("Could not parse feed %s: %v", feed.URL, err)
 				// Still save the feed even if we can't fetch it now
 				db.Create(feed)
 			} else {
 				storage.AddFeedForUser(db, feed, items, adminUser.ID)
 			}
-			log.Printf("Added new feed: %s", feedCfg.URL)
+			logger.Infof("Added new feed: %s", feedCfg.URL)
 		}
 	}
 }
@@ -175,27 +188,27 @@ func migrateToMultiUser(db *gorm.DB) {
 		// Add user_id column with default value 1
 		// Using default value allows adding to existing table
 		if err := db.Exec("ALTER TABLE feeds ADD COLUMN user_id INTEGER DEFAULT 1").Error; err != nil {
-			log.Printf("Error adding user_id column: %v", err)
+			logger.Errorf("Error adding user_id column: %v", err)
 			return
 		}
 		
 		// Update existing rows to have user_id = 1 (will be assigned to admin)
 		if err := db.Exec("UPDATE feeds SET user_id = 1 WHERE user_id IS NULL").Error; err != nil {
-			log.Printf("Error updating existing feeds: %v", err)
+			logger.Errorf("Error updating existing feeds: %v", err)
 			return
 		}
 		
-		log.Println("Successfully added user_id column to feeds table")
+		logger.Infof("Successfully added user_id column to feeds table")
 	}
 	
 	// Create index on user_id for better performance
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
-		log.Printf("Error creating index: %v", err)
+		logger.Errorf("Error creating index: %v", err)
 	}
 	
 	// Auto-migrate User table
 	if err := db.AutoMigrate(&models.User{}); err != nil {
-		log.Printf("Warning: User table migration failed: %v", err)
+		logger.Warnf("User table migration failed: %v", err)
 	}
 	
 	// Assign existing feeds (with user_id=1) to admin - will be done in createFirstAdmin
@@ -224,13 +237,13 @@ func createFirstAdmin(db *gorm.DB) uint {
 		// Generate a random password if not set
 		adminUsername = "admin"
 		adminPassword = "admin123"
-		log.Printf("WARNING: No ADMIN_USERNAME/ADMIN_PASSWORD set, created default admin/admin123")
-		log.Printf("PLEASE CHANGE THIS PASSWORD IMMEDIATELY!")
+		logger.Warnf("No ADMIN_USERNAME/ADMIN_PASSWORD set, created default admin/admin123")
+		logger.Warnf("PLEASE CHANGE THIS PASSWORD IMMEDIATELY!")
 	}
 
 	hashedPassword, err := auth.HashPassword(adminPassword)
 	if err != nil {
-		log.Printf("Error creating admin user: %v", err)
+		logger.Errorf("Error creating admin user: %v", err)
 		return 0
 	}
 
@@ -241,17 +254,17 @@ func createFirstAdmin(db *gorm.DB) uint {
 	}
 
 	if err := db.Create(&admin).Error; err != nil {
-		log.Printf("Error creating admin user: %v", err)
+		logger.Errorf("Error creating admin user: %v", err)
 		return 0
 	}
 
-	log.Printf("Created first admin user: %s", adminUsername)
+	logger.Infof("Created first admin user: %s", adminUsername)
 	
 	// Assign existing feeds to this admin
 	if err := db.Model(&models.Feed{}).
 		Where("user_id IS NULL OR user_id = 0 OR user_id = 1").
 		Update("user_id", admin.ID).Error; err != nil {
-		log.Printf("Warning: Could not assign existing feeds to admin: %v", err)
+		logger.Warnf("Could not assign existing feeds to admin: %v", err)
 	}
 	
 	return admin.ID
@@ -263,7 +276,7 @@ func configureRegistration() {
 	allowReg := os.Getenv("ALLOW_REGISTRATION")
 	if allowReg == "true" {
 		auth.SetAllowRegistration(true)
-		log.Println("Public registration is enabled (via ALLOW_REGISTRATION=true)")
+		logger.Infof("Public registration is enabled (via ALLOW_REGISTRATION=true)")
 		return
 	}
 
@@ -271,13 +284,13 @@ func configureRegistration() {
 	cfg, err := config.LoadConfig("data/config.yaml")
 	if err == nil && cfg.AllowRegistration {
 		auth.SetAllowRegistration(true)
-		log.Println("Public registration is enabled (via config file)")
+		logger.Infof("Public registration is enabled (via config file)")
 		return
 	}
 
 	// Default: disabled
 	auth.SetAllowRegistration(false)
-	log.Println("Public registration is disabled (admin must create users)")
+	logger.Infof("Public registration is disabled (admin must create users)")
 }
 
 // newStaticHandler creates a file server that sets proper Content-Type headers

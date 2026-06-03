@@ -3,11 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"rss-aggregator/internal/auth"
+	"rss-aggregator/internal/logger"
 	"gorm.io/gorm"
 )
 
@@ -55,14 +55,14 @@ func (b *SSEBroker) Run() {
 		select {
 		case client := <-b.Register:
 			b.Clients[client.UserID] = append(b.Clients[client.UserID], client)
-			log.Printf("SSE: Client connected for user %d", client.UserID)
+			logger.Infof("SSE: Client connected for user %d", client.UserID)
 
 		case client := <-b.Unregister:
 			for i, c := range b.Clients[client.UserID] {
 				if c.Response == client.Response {
 					b.Clients[client.UserID] = append(b.Clients[client.UserID][:i], b.Clients[client.UserID][i+1:]...)
 					close(c.Done)
-					log.Printf("SSE: Client disconnected for user %d", client.UserID)
+					logger.Infof("SSE: Client disconnected for user %d", client.UserID)
 					break
 				}
 			}
@@ -92,7 +92,7 @@ func (b *SSEBroker) sendEvent(client SSEClient, event SSEEvent) {
 	// Format as SSE
 	data, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("SSE: Error marshaling event: %v", err)
+		logger.Errorf("SSE: Error marshaling event: %v", err)
 		return
 	}
 

@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"rss-aggregator/internal/logger"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
@@ -152,7 +152,7 @@ func HandleCallback(db *gorm.DB) http.HandlerFunc {
 		// Find the feed with this topic URL
 		var feed models.Feed
 		if err := db.Where("topic_url = ? OR url = ?", topic, topic).First(&feed).Error; err != nil {
-			log.Printf("WebSub: No feed found for topic %s", topic)
+			logger.Warnf("WebSub: No feed found for topic %s", topic)
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
 		}
@@ -160,7 +160,7 @@ func HandleCallback(db *gorm.DB) http.HandlerFunc {
 		// Verify the signature
 		if signature != "" && feed.Secret != "" {
 			if !VerifySignature(body, feed.Secret, strings.TrimPrefix(signature, "sha256=")) {
-				log.Printf("WebSub: Invalid signature for feed %s", feed.Title)
+				logger.Warnf("WebSub: Invalid signature for feed %s", feed.Title)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -169,7 +169,7 @@ func HandleCallback(db *gorm.DB) http.HandlerFunc {
 		// Parse the updated feed
 		_, items, err := parser.ParseFeed(feed.URL)
 		if err != nil {
-			log.Printf("WebSub: Error parsing feed %s: %v", feed.URL, err)
+			logger.Errorf("WebSub: Error parsing feed %s: %v", feed.URL, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -178,11 +178,11 @@ func HandleCallback(db *gorm.DB) http.HandlerFunc {
 		feed.LastFetch = time.Now()
 		feed.Error = ""
 		if err := db.Save(&feed).Error; err != nil {
-			log.Printf("WebSub: Error saving feed %s: %v", feed.Title, err)
+			logger.Errorf("WebSub: Error saving feed %s: %v", feed.Title, err)
 		}
 
 		storage.AddFeed(db, &feed, items)
-		log.Printf("WebSub: Received update for %s, added %d items", feed.Title, len(items))
+		logger.Infof("WebSub: Received update for %s, added %d items", feed.Title, len(items))
 
 		// Return 200 OK
 		w.WriteHeader(http.StatusOK)
@@ -196,7 +196,7 @@ func SubscribeFeedToWebSub(db *gorm.DB, feed *models.Feed, callbackBaseURL strin
 		// Try to discover hub
 		hubURL, topicURL, err := parser.GetHubAndTopic(feed.URL)
 		if err != nil {
-			log.Printf("WebSub: Could not discover hub for %s: %v", feed.URL, err)
+			logger.Warnf("WebSub: Could not discover hub for %s: %v", feed.URL, err)
 			return err
 		}
 		feed.HubURL = hubURL
@@ -207,7 +207,7 @@ func SubscribeFeedToWebSub(db *gorm.DB, feed *models.Feed, callbackBaseURL strin
 	}
 
 	if feed.HubURL == "" {
-		log.Printf("WebSub: No hub found for feed %s", feed.URL)
+		logger.Warnf("WebSub: No hub found for feed %s", feed.URL)
 		return nil
 	}
 
@@ -225,7 +225,7 @@ func SubscribeFeedToWebSub(db *gorm.DB, feed *models.Feed, callbackBaseURL strin
 
 	// Subscribe to the hub
 	if err := Subscribe(feed.HubURL, feed.TopicURL, callbackURL, feed.Secret); err != nil {
-		log.Printf("WebSub: Failed to subscribe feed %s: %v", feed.URL, err)
+		logger.Errorf("WebSub: Failed to subscribe feed %s: %v", feed.URL, err)
 		return err
 	}
 
@@ -243,7 +243,7 @@ func UnsubscribeFeedFromWebSub(db *gorm.DB, feed *models.Feed, callbackBaseURL s
 	callbackURL := fmt.Sprintf("%s/websub/callback?feed_id=%d", callbackBaseURL, feed.ID)
 
 	if err := Unsubscribe(feed.HubURL, feed.TopicURL, callbackURL, feed.Secret); err != nil {
-		log.Printf("WebSub: Failed to unsubscribe feed %s: %v", feed.URL, err)
+		logger.Errorf("WebSub: Failed to unsubscribe feed %s: %v", feed.URL, err)
 		return err
 	}
 
@@ -260,7 +260,7 @@ func StartWebSubManager(db *gorm.DB, callbackBaseURL string) {
 	for _, feed := range feeds {
 		if !feed.Subscribed {
 			if err := SubscribeFeedToWebSub(db, &feed, callbackBaseURL); err != nil {
-				log.Printf("WebSub: Could not subscribe feed %s: %v", feed.URL, err)
+				logger.Warnf("WebSub: Could not subscribe feed %s: %v", feed.URL, err)
 			}
 		}
 	}
