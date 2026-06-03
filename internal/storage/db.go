@@ -14,13 +14,28 @@ func InitDB(path string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&models.Feed{}, &models.Item{}, &models.User{})
+	err = db.AutoMigrate(&models.Feed{}, &models.Item{}, &models.User{}, &models.Category{})
 	if err != nil {
 		return nil, err
 	}
 
 	// Create index on feeds.user_id for better query performance
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
+		return nil, err
+	}
+
+	// Create unique index on categories (user_id, name) to prevent duplicate names per user
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uni_categories_user_name ON categories(user_id, name)").Error; err != nil {
+		return nil, err
+	}
+
+	// Create index on categories.user_id for better query performance
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id)").Error; err != nil {
+		return nil, err
+	}
+
+	// Create index on feeds.category_id for better query performance
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_category_id ON feeds(category_id)").Error; err != nil {
 		return nil, err
 	}
 

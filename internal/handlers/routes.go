@@ -114,7 +114,30 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 
 		// Get feed IDs based on filter mode
 		var feedIDs []uint
-		if strings.HasPrefix(filterMode, "feed:") {
+		var selectedCategory *models.Category
+		
+		if strings.HasPrefix(filterMode, "category:") {
+			// Filter by category ID
+			categoryIDStr := strings.TrimPrefix(filterMode, "category:")
+			categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+			if err == nil {
+				// Get all feeds in this category for this user
+				feedsInCategory, err := storage.GetFeedsByCategoryAndUser(db, uint(categoryID), userID)
+				if err == nil {
+					for _, f := range feedsInCategory {
+						feedIDs = append(feedIDs, f.ID)
+					}
+					// Store category for template
+					selectedCategory, _ = storage.GetCategoryByIDAndUser(db, uint(categoryID), userID)
+				}
+			}
+		} else if filterMode == "uncategorized" {
+			// Get feeds without category
+			uncategorizedFeeds, _ := storage.GetUncategorizedFeedsByUser(db, userID)
+			for _, f := range uncategorizedFeeds {
+				feedIDs = append(feedIDs, f.ID)
+			}
+		} else if strings.HasPrefix(filterMode, "feed:") {
 			// Filter by specific feed ID
 			feedIDStr := strings.TrimPrefix(filterMode, "feed:")
 			feedID, err := strconv.ParseUint(feedIDStr, 10, 32)
@@ -198,33 +221,40 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 			weatherCityMap[city.Name] = city
 		}
 
+		// Load categories for filtering
+		categories, _ := storage.GetAllCategoriesByUser(db, userID)
+
 		tmpl.ExecuteTemplate(w, "index.html", struct {
-			Items          []models.Item
-			AllFeeds       []models.Feed
-			IncludedIDs    []uint
-			Count          int64
-			Limit          int
-			Offset         int
-			HasOlder       bool
-			HasNewer       bool
-			NextOffset     int
-			PrevOffset     int
-			FilterMode     string
-			ViewMode       string
-			ShowRead       bool
-			WeatherCities  []config.WeatherCity
-			WeatherCityMap map[string]config.WeatherCity
+			Items           []models.Item
+			AllFeeds        []models.Feed
+			Categories      []models.Category
+			SelectedCategory *models.Category
+			IncludedIDs     []uint
+			Count           int64
+			Limit           int
+			Offset          int
+			HasOlder        bool
+			HasNewer        bool
+			NextOffset      int
+			PrevOffset      int
+			FilterMode      string
+			ViewMode        string
+			ShowRead        bool
+			WeatherCities   []config.WeatherCity
+			WeatherCityMap  map[string]config.WeatherCity
 		}{
-			Items:          items,
-			AllFeeds:       allFeeds,
-			IncludedIDs:    includedIDs,
-			Count:          count,
-			Limit:          limit,
-			Offset:         offset,
-			HasOlder:       hasOlder,
-			HasNewer:       hasNewer,
-			NextOffset:     nextOffset,
-			PrevOffset:     prevOffset,
+			Items:           items,
+			AllFeeds:        allFeeds,
+			Categories:      categories,
+			SelectedCategory: selectedCategory,
+			IncludedIDs:     includedIDs,
+			Count:           count,
+			Limit:           limit,
+			Offset:          offset,
+			HasOlder:        hasOlder,
+			HasNewer:        hasNewer,
+			NextOffset:      nextOffset,
+			PrevOffset:      prevOffset,
 			FilterMode:     filterMode,
 			ViewMode:       viewMode,
 			ShowRead:       showRead,
@@ -501,4 +531,32 @@ func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 
 	// SSE endpoint for real-time notifications
 	r.HandleFunc("/api/events", SSEHandler(db, jwtConfig)).Methods("GET")
+
+	// Category API routes
+	r.HandleFunc("/api/categories", ListCategoriesHandler(db)).Methods("GET")
+	r.HandleFunc("/api/categories", CreateCategoryHandler(db)).Methods("POST")
+	r.HandleFunc("/api/categories/{id}", UpdateCategoryHandler(db)).Methods("PUT")
+	r.HandleFunc("/api/categories/{id}", DeleteCategoryHandler(db)).Methods("DELETE")
+	r.HandleFunc("/api/feed/{feedId}/category/{categoryId}", AssignFeedToCategoryHandler(db)).Methods("POST")
+	r.HandleFunc("/api/feed/{feedId}/category", RemoveFeedFromCategoryHandler(db)).Methods("DELETE")
+
+	// Category management page
+	r.HandleFunc("/categories", func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		categories, _ := storage.GetAllCategoriesByUser(db, claims.UserID)
+		feeds, _ := storage.GetAllFeedsByUser(db, claims.UserID)
+
+		tmpl.ExecuteTemplate(w, "categories.html", struct {
+			Categories []models.Category
+			Feeds      []models.Feed
+		}{
+			Categories: categories,
+			Feeds:      feeds,
+		})
+	})
 }

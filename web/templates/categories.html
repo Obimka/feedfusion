@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gérer les catégories - FeedFusion</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/sidebar.js"></script>
+    <script src="/static/js/utils.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-tags"></i> Catégories</h2>
+            </div>
+            <div class="sidebar-form">
+                <div class="filter-options">
+                    <a href="/" class="filter-option-link">
+                        <i class="fas fa-arrow-left"></i> Retour aux articles
+                    </a>
+                    <a href="/feeds" class="filter-option-link">
+                        <i class="fas fa-rss"></i> Gérer les flux
+                    </a>
+                    <a href="/settings" class="filter-option-link">
+                        <i class="fas fa-cog"></i> Paramètres
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <a href="/" class="btn" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+                <a href="/login" class="btn btn-secondary logout-btn" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();" style="width: 100%; margin-top: 0.5rem;">
+                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                </a>
+                <form id="logoutForm" action="/api/logout" method="POST" style="display: none;"></form>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <button onclick="toggleSidebar()" class="sidebar-toggle btn" title="Masquer/afficher le menu">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1><a href="/"><img src="/static/images/logo.png" alt="FeedFusion" class="logo">FeedFusion</a></h1>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <h2><i class="fas fa-tags"></i> Gestion des catégories ({{len .Categories}})</h2>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="addCategoryBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Ajouter une catégorie
+                        </button>
+                        <button onclick="toggleTheme()" class="btn theme-toggle" title="Basculer le thème">
+                            <i class="fas fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="errorMessage" class="error-message"></div>
+                <div id="successMessage" class="success-message"></div>
+
+                {{if .Categories}}
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;"><i class="fas fa-palette"></i> Couleur</th>
+                                <th><i class="fas fa-tag"></i> Nom</th>
+                                <th><i class="fas fa-rss"></i> Flux associés</th>
+                                <th style="width: 120px;"><i class="fas fa-cogs"></i> Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                            {{range .Categories}}
+                            <tr data-category-id="{{.ID}}">
+                                <td>
+                                    <div class="color-preview" style="background-color: {{.Color}};" title="{{.Color}}"></div>
+                                </td>
+                                <td><strong>{{.Name}}</strong></td>
+                                <td>
+                                    <span id="feedCount_{{.ID}}">0</span> flux
+                                </td>
+                                <td class="action-buttons">
+                                    <button onclick="editCategory({{.ID}})" class="btn btn-secondary btn-small" title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteCategory({{.ID}}, '{{.Name}}')" class="btn btn-danger btn-small" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="empty-state">
+                    <h2><i class="fas fa-tags"></i> Aucune catégorie créée</h2>
+                    <p>Ajoutez votre première catégorie pour organiser vos flux !</p>
+                </div>
+                {{end}}
+
+                <!-- Section pour attribuer des flux aux catégories -->
+                <div class="settings-section" style="margin-top: 2rem;">
+                    <h3><i class="fas fa-link"></i> Associer des flux aux catégories</h3>
+                    <div class="feed-category-association">
+                        <div class="form-group">
+                            <label for="feedSelect">Sélectionnez un flux :</label>
+                            <select id="feedSelect" class="form-select">
+                                <option value="">-- Choisir un flux --</option>
+                                {{range .Feeds}}
+                                <option value="{{.ID}}">{{.Title}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="categorySelect">Sélectionnez une catégorie :</label>
+                            <select id="categorySelect" class="form-select">
+                                <option value="">-- Choisir une catégorie --</option>
+                                {{range .Categories}}
+                                <option value="{{.ID}}">{{.Name}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button onclick="assignFeedToCategory()" class="btn btn-primary" id="assignBtn" disabled>
+                                <i class="fas fa-link"></i> Associer
+                            </button>
+                            <button onclick="removeFeedFromCategory()" class="btn btn-secondary" id="removeBtn" disabled>
+                                <i class="fas fa-unlink"></i> Retirer
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="category-feeds-list" style="margin-top: 1.5rem;">
+                        <h4>Flux par catégorie :</h4>
+                        <div id="categoryFeedsContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Ajouter/Modifier Catégorie -->
+    <div id="categoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="modalTitle">Ajouter une catégorie</h3>
+            <form id="categoryForm">
+                <input type="hidden" id="categoryId">
+                <div class="form-group">
+                    <label for="modalName">Nom de la catégorie *</label>
+                    <input type="text" id="modalName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="modalColor">Couleur</label>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <input type="color" id="modalColor" class="form-color" value="#6B8EBA">
+                        <span id="colorValue" style="font-family: monospace;">#6B8EBA</span>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="cancelCategoryBtn" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Confirmation de suppression -->
+    <div id="deleteCategoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3><i class="fas fa-exclamation-triangle"></i> Supprimer la catégorie</h3>
+            <p id="deleteCategoryConfirmText"></p>
+            <div class="modal-buttons">
+                <button type="button" id="deleteCategoryCancelBtn" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Annuler
+                </button>
+                <button type="button" id="deleteCategoryConfirmBtn" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0, 0, 0, 0.6); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 1000; 
+        }
+        .modal-content { 
+            background: var(--card-bg, #ffffff); 
+            padding: 2rem; 
+            border-radius: 8px; 
+            max-width: 500px; 
+            width: 90%; 
+            color: var(--text, #1a1d29); 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); 
+        }
+        .modal-buttons { 
+            display: flex; 
+            gap: 1rem; 
+            justify-content: flex-end; 
+            margin-top: 1.5rem; 
+        }
+        .color-preview { 
+            width: 30px; 
+            height: 30px; 
+            border-radius: 50%; 
+            border: 2px solid var(--border); 
+            cursor: pointer; 
+        }
+        .form-color { 
+            width: 60px; 
+            height: 40px; 
+            padding: 0; 
+            border: 2px solid var(--border); 
+            border-radius: 6px; 
+            cursor: pointer; 
+            background: none; 
+        }
+        .form-color::-webkit-color-swatch-wrapper { padding: 0; }
+        .form-color::-webkit-color-swatch { border: none; border-radius: 4px; }
+        .data-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: var(--card-bg); 
+            border-radius: 8px; 
+            overflow: hidden; 
+        }
+        .data-table th, .data-table td { 
+            padding: 1rem; 
+            text-align: left; 
+            border-bottom: 1px solid var(--border); 
+        }
+        .data-table th { 
+            background: var(--read-bg); 
+            font-weight: 600; 
+        }
+        .data-table tr:hover { 
+            background: var(--read-bg); 
+        }
+        .error-message { 
+            color: var(--danger); 
+            background: rgba(239, 68, 68, 0.1); 
+            padding: 1rem; 
+            border-radius: 4px; 
+            margin-bottom: 1rem; 
+            display: none; 
+        }
+        .error-message:not(:empty) { 
+            display: block; 
+        }
+        .success-message { 
+            color: var(--success); 
+            background: rgba(16, 185, 129, 0.1); 
+            padding: 1rem; 
+            border-radius: 4px; 
+            margin-bottom: 1rem; 
+            display: none; 
+        }
+        .success-message:not(:empty) { 
+            display: block; 
+        }
+        .btn-small { 
+            padding: 0.25rem 0.75rem; 
+            font-size: 0.875rem; 
+        }
+        .feed-category-association { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 1rem; 
+        }
+        .category-feeds-list { 
+            margin-top: 1.5rem; 
+        }
+        .category-feeds-item { 
+            margin-bottom: 1rem; 
+            padding: 1rem; 
+            background: var(--read-bg); 
+            border-radius: 8px; 
+        }
+        .category-feeds-item h5 { 
+            margin-bottom: 0.5rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 0.5rem; 
+        }
+        .feed-badge { 
+            display: inline-block; 
+            padding: 0.25rem 0.5rem; 
+            background: var(--card-bg); 
+            border: 1px solid var(--border); 
+            border-radius: 4px; 
+            margin-right: 0.5rem; 
+            margin-bottom: 0.25rem; 
+            font-size: 0.875rem; 
+        }
+        .feed-badge .remove-feed { 
+            cursor: pointer; 
+            margin-left: 0.25rem; 
+            color: var(--danger); 
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(25, 51, 134, 0.1);
+        }
+        .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(25, 51, 134, 0.1);
+        }
+        .btn-danger {
+            background: var(--danger) !important;
+            color: white !important;
+            border-color: var(--danger) !important;
+        }
+        .btn-danger:hover {
+            background: #dc2626 !important;
+            border-color: #dc2626 !important;
+        }
+    </style>
+
+    <script>
+        let currentCategoryId = 0;
+        let allCategories = {{ toJSON .Categories }};
+        let allFeeds = {{ toJSON .Feeds }};
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategoryFeeds();
+            setupEventListeners();
+            updateColorValue();
+        });
+
+        function setupEventListeners() {
+            // Bouton ajouter catégorie
+            document.getElementById('addCategoryBtn').addEventListener('click', addCategory);
+            
+            // Formulaire de catégorie
+            document.getElementById('categoryForm').addEventListener('submit', saveCategory);
+            
+            // Color picker
+            document.getElementById('modalColor').addEventListener('input', updateColorValue);
+            
+            // Sélection flux/catégorie pour association
+            document.getElementById('feedSelect').addEventListener('change', updateAssignButtons);
+            document.getElementById('categorySelect').addEventListener('change', updateAssignButtons);
+            
+            // Boutons de modale
+            document.getElementById('cancelCategoryBtn').addEventListener('click', () => {
+                document.getElementById('categoryModal').style.display = 'none';
+            });
+            
+            document.getElementById('deleteCategoryCancelBtn').addEventListener('click', () => {
+                document.getElementById('deleteCategoryModal').style.display = 'none';
+            });
+            
+            // Fermer modales en cliquant à l'extérieur
+            document.getElementById('categoryModal').addEventListener('click', (e) => {
+                if (e.target.id === 'categoryModal') e.target.style.display = 'none';
+            });
+            document.getElementById('deleteCategoryModal').addEventListener('click', (e) => {
+                if (e.target.id === 'deleteCategoryModal') e.target.style.display = 'none';
+            });
+            
+            // Fermer avec Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('categoryModal').style.display = 'none';
+                    document.getElementById('deleteCategoryModal').style.display = 'none';
+                }
+            });
+        }
+
+        function updateColorValue() {
+            const colorInput = document.getElementById('modalColor');
+            document.getElementById('colorValue').textContent = colorInput.value;
+        }
+
+        function updateAssignButtons() {
+            const feedId = document.getElementById('feedSelect').value;
+            const categoryId = document.getElementById('categorySelect').value;
+            const assignBtn = document.getElementById('assignBtn');
+            const removeBtn = document.getElementById('removeBtn');
+            
+            assignBtn.disabled = !feedId || !categoryId;
+            removeBtn.disabled = !feedId;
+        }
+
+        // Charger les flux par catégorie
+        async function loadCategoryFeeds() {
+            try {
+                const container = document.getElementById('categoryFeedsContainer');
+                
+                if (allCategories.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-secondary);">Aucune catégorie disponible</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (const category of allCategories) {
+                    // Filtrer les flux qui appartiennent à cette catégorie
+                    const categoryFeeds = allFeeds.filter(f => f.CategoryID === category.ID);
+                    
+                    html += `
+                        <div class="category-feeds-item" data-category-id="${category.ID}">
+                            <h5>
+                                <span class="color-preview" style="background-color: ${category.Color}; width: 20px; height: 20px; border-radius: 50%; display: inline-block;"></span>
+                                ${escapeHtml(category.Name)} (${categoryFeeds.length})
+                            </h5>
+                            <div class="feed-badges-container">
+                                ${categoryFeeds.map(f => `
+                                    <span class="feed-badge">
+                                        ${escapeHtml(f.Title)}
+                                        <span class="remove-feed" onclick="removeFeedFromCategoryByFeedId(${f.ID})" title="Retirer de cette catégorie">
+                                            <i class="fas fa-times"></i>
+                                        </span>
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = html;
+                
+                // Mettre à jour les comptes dans le tableau
+                for (const category of allCategories) {
+                    const categoryFeeds = allFeeds.filter(f => f.CategoryID === category.ID);
+                    const countEl = document.getElementById(`feedCount_${category.ID}`);
+                    if (countEl) {
+                        countEl.textContent = categoryFeeds.length;
+                    }
+                }
+                
+            } catch (error) {
+                showError('Erreur lors du chargement: ' + error.message);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            setTimeout(() => el.textContent = '', 5000);
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            setTimeout(() => el.textContent = '', 5000);
+        }
+
+        function addCategory() {
+            currentCategoryId = 0;
+            document.getElementById('modalTitle').textContent = 'Ajouter une catégorie';
+            document.getElementById('categoryId').value = '';
+            document.getElementById('modalName').value = '';
+            document.getElementById('modalColor').value = '#6B8EBA';
+            document.getElementById('colorValue').textContent = '#6B8EBA';
+            document.getElementById('categoryModal').style.display = 'flex';
+            document.getElementById('modalName').focus();
+        }
+
+        function editCategory(id) {
+            currentCategoryId = id;
+            const category = allCategories.find(c => c.ID === id);
+            if (!category) return;
+            
+            document.getElementById('modalTitle').textContent = 'Modifier la catégorie';
+            document.getElementById('categoryId').value = category.ID;
+            document.getElementById('modalName').value = category.Name;
+            document.getElementById('modalColor').value = category.Color || '#6B8EBA';
+            document.getElementById('colorValue').textContent = category.Color || '#6B8EBA';
+            document.getElementById('categoryModal').style.display = 'flex';
+            document.getElementById('modalName').focus();
+        }
+
+        function deleteCategory(id, name) {
+            currentCategoryId = id;
+            document.getElementById('deleteCategoryConfirmText').innerHTML = `
+                <i class="fas fa-exclamation-circle"></i> 
+                Êtes-vous sûr de vouloir supprimer la catégorie <strong>${escapeHtml(name)}</strong> ?
+            `;
+            document.getElementById('deleteCategoryModal').style.display = 'flex';
+        }
+
+        async function saveCategory(e) {
+            e.preventDefault();
+            
+            const categoryId = document.getElementById('categoryId').value;
+            const name = document.getElementById('modalName').value.trim();
+            const color = document.getElementById('modalColor').value;
+            
+            if (!name) {
+                showError('Le nom de la catégorie est obligatoire');
+                return;
+            }
+            
+            try {
+                let url, method;
+                let body = { name, color };
+                
+                if (categoryId) {
+                    url = `/api/categories/${categoryId}`;
+                    method = 'PUT';
+                } else {
+                    url = '/api/categories';
+                    method = 'POST';
+                }
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur lors de la sauvegarde');
+                }
+                
+                const savedCategory = await response.json();
+                
+                showSuccess(categoryId ? 'Catégorie mise à jour avec succès' : 'Catégorie créée avec succès');
+                closeCategoryModal();
+                
+                // Recharger la page pour voir les changements
+                location.reload();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function assignFeedToCategory() {
+            const feedId = document.getElementById('feedSelect').value;
+            const categoryId = document.getElementById('categorySelect').value;
+            
+            if (!feedId || !categoryId) return;
+            
+            try {
+                const response = await fetch(`/api/feed/${feedId}/category/${categoryId}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur lors de l\'association');
+                }
+                
+                showSuccess('Flux associé à la catégorie avec succès');
+                // Recharger la page pour voir les changements
+                location.reload();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function removeFeedFromCategory() {
+            const feedId = document.getElementById('feedSelect').value;
+            
+            if (!feedId) return;
+            
+            try {
+                const response = await fetch(`/api/feed/${feedId}/category`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur lors du retrait');
+                }
+                
+                showSuccess('Flux retiré de sa catégorie avec succès');
+                // Recharger la page pour voir les changements
+                location.reload();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function removeFeedFromCategoryByFeedId(feedId) {
+            try {
+                const response = await fetch(`/api/feed/${feedId}/category`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur lors du retrait');
+                }
+                
+                showSuccess('Flux retiré de sa catégorie');
+                // Recharger la page pour voir les changements
+                location.reload();
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+
+        // Bouton de suppression de catégorie
+        document.getElementById('deleteCategoryConfirmBtn').addEventListener('click', async () => {
+            if (currentCategoryId === 0) return;
+            
+            try {
+                const response = await fetch(`/api/categories/${currentCategoryId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erreur lors de la suppression');
+                }
+                
+                showSuccess('Catégorie supprimée avec succès');
+                document.getElementById('deleteCategoryModal').style.display = 'none';
+                location.reload();
+                
+            } catch (error) {
+                showError(error.message);
+                document.getElementById('deleteCategoryModal').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
