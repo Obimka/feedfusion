@@ -1,0 +1,398 @@
+package handlers
+
+import (
+	"net/http"
+	"rss-aggregator/internal/auth"
+	"rss-aggregator/internal/config"
+	"rss-aggregator/internal/logger"
+	"rss-aggregator/internal/models"
+	"rss-aggregator/internal/parser"
+	"rss-aggregator/internal/storage"
+	"github.com/gorilla/mux"
+	"gorm.io/gorm"
+	"strconv"
+	"strings"
+)
+
+
+
+func registerFeedRoutes(r *mux.Router, db *gorm.DB) {
+	// Main feed page
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logger.Debugf("Accessing home page with query params: %s", r.URL.RawQuery)
+		// Get user from context (set by auth middleware)
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			logger.Debugf("User not authenticated, redirecting to login")
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		userID := claims.UserID
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		if limit == 0 {
+			limit = 20
+		}
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+		// Get filter mode from query param
+		filterMode := r.URL.Query().Get("filter")
+		if filterMode == "" {
+			filterMode = "included"
+		}
+
+		// Get view mode from query param
+		viewMode := r.URL.Query().Get("view")
+		if viewMode == "" {
+			viewMode = "full"
+		}
+
+		// Get show read status from query param (default: false = hide read articles)
+		showRead := r.URL.Query().Get("showRead") == "true"
+
+		// Get feed IDs based on filter mode
+		var feedIDs []uint
+		var selectedCategory *models.Category
+		
+		if strings.HasPrefix(filterMode, "category:") {
+			// Filter by category ID
+			categoryIDStr := strings.TrimPrefix(filterMode, "category:")
+			categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+			if err == nil {
+				// Get all feeds in this category for this user
+				feedsInCategory, err := storage.GetFeedsByCategoryAndUser(db, uint(categoryID), userID)
+				if err == nil {
+					for _, f := range feedsInCategory {
+						feedIDs = append(feedIDs, f.ID)
+					}
+					// Store category for template
+					selectedCategory, _ = storage.GetCategoryByIDAndUser(db, uint(categoryID), userID)
+				}
+			}
+		} else if filterMode == "uncategorized" {
+			// Get feeds without category
+			uncategorizedFeeds, _ := storage.GetUncategorizedFeedsByUser(db, userID)
+			for _, f := range uncategorizedFeeds {
+				feedIDs = append(feedIDs, f.ID)
+			}
+		} else if strings.HasPrefix(filterMode, "feed:") {
+			// Filter by specific feed ID
+			feedIDStr := strings.TrimPrefix(filterMode, "feed:")
+			feedID, err := strconv.ParseUint(feedIDStr, 10, 32)
+			if err == nil {
+				// Verify feed belongs to user
+				_, err := storage.GetFeedByIDAndUser(db, uint(feedID), userID)
+				if err == nil {
+					feedIDs = []uint{uint(feedID)}
+				}
+			}
+		} else if filterMode == "all" {
+			// Get all feed IDs for this user
+			allFeeds, _ := storage.GetAllFeedsByUser(db, userID)
+			for _, f := range allFeeds {
+				feedIDs = append(feedIDs, f.ID)
+			}
+		} else {
+			// Get only included feeds (default)
+			includedFeeds, _ := storage.GetIncludedFeedsByUser(db, userID)
+			for _, f := range includedFeeds {
+				feedIDs = append(feedIDs, f.ID)
+			}
+		}
+
+		items, count, _ := storage.GetFilteredItemsByReadAndUser(db, limit, offset, showRead, feedIDs, userID)
+
+		// Load feed titles for display
+		feedMap := make(map[uint]string)
+		allFeeds, _ := storage.GetAllFeedsByUser(db, userID)
+		// Sort feeds by last fetch date (most recent first)
+		for i := 0; i < len(allFeeds)-1; i++ {
+			for j := i + 1; j < len(allFeeds); j++ {
+				if allFeeds[j].LastFetch.After(allFeeds[i].LastFetch) {
+					allFeeds[i], allFeeds[j] = allFeeds[j], allFeeds[i]
+				}
+			}
+		}
+		for _, f := range allFeeds {
+			feedMap[f.ID] = f.Title
+		}
+		for i := range items {
+			items[i].FeedTitle = feedMap[items[i].FeedID]
+		}
+
+		// Get included feed IDs for checkboxes
+		includedFeeds, _ := storage.GetIncludedFeedsByUser(db, userID)
+		var includedIDs []uint
+		for _, f := range includedFeeds {
+			includedIDs = append(includedIDs, f.ID)
+		}
+
+		nextOffset := offset + limit
+		hasOlder := count > int64(nextOffset)
+		hasNewer := offset > 0
+		prevOffset := offset - limit
+		if prevOffset < 0 {
+			prevOffset = 0
+		}
+
+		// Load weather cities from config and convert to map for template
+		cfg, _ := config.LoadConfig("data/config.yaml")
+		weatherCities := cfg.WeatherCities
+		if len(weatherCities) == 0 {
+			// Default cities if config is empty
+			weatherCities = []config.WeatherCity{
+				{Name: "Paris", Lat: 48.8566, Lon: 2.3522, Timezone: "Europe/Paris"},
+				{Name: "Lyon", Lat: 45.7640, Lon: 4.8357, Timezone: "Europe/Paris"},
+				{Name: "Marseille", Lat: 43.2965, Lon: 5.3698, Timezone: "Europe/Paris"},
+				{Name: "Toulouse", Lat: 43.6047, Lon: 1.4442, Timezone: "Europe/Paris"},
+				{Name: "Bordeaux", Lat: 44.8378, Lon: -0.5792, Timezone: "Europe/Paris"},
+				{Name: "Lille", Lat: 50.6292, Lon: 3.0573, Timezone: "Europe/Paris"},
+				{Name: "Nantes", Lat: 47.2184, Lon: -1.5536, Timezone: "Europe/Paris"},
+				{Name: "Nice", Lat: 43.7102, Lon: 7.2620, Timezone: "Europe/Paris"},
+				{Name: "Dijon", Lat: 47.3166, Lon: 5.0166, Timezone: "Europe/Paris"},
+			}
+		}
+
+		// Convert to map for easier JavaScript access
+		weatherCityMap := make(map[string]config.WeatherCity)
+		for _, city := range weatherCities {
+			weatherCityMap[city.Name] = city
+		}
+
+		// Load categories for filtering
+		categories, _ := storage.GetAllCategoriesByUser(db, userID)
+
+		Tmpl.ExecuteTemplate(w, "index.html", struct {
+			Items           []models.Item
+			AllFeeds        []models.Feed
+			Categories      []models.Category
+			SelectedCategory *models.Category
+			IncludedIDs     []uint
+			Count           int64
+			Limit           int
+			Offset          int
+			HasOlder        bool
+			HasNewer        bool
+			NextOffset      int
+			PrevOffset      int
+			FilterMode      string
+			ViewMode        string
+			ShowRead        bool
+			WeatherCities   []config.WeatherCity
+			WeatherCityMap  map[string]config.WeatherCity
+		}{
+			Items:           items,
+			AllFeeds:        allFeeds,
+			Categories:      categories,
+			SelectedCategory: selectedCategory,
+			IncludedIDs:     includedIDs,
+			Count:           count,
+			Limit:           limit,
+			Offset:          offset,
+			HasOlder:        hasOlder,
+			HasNewer:        hasNewer,
+			NextOffset:      nextOffset,
+			PrevOffset:      prevOffset,
+			FilterMode:     filterMode,
+			ViewMode:       viewMode,
+			ShowRead:       showRead,
+			WeatherCities:  weatherCities,
+			WeatherCityMap: weatherCityMap,
+		})
+	})
+
+	// Feed management
+	r.HandleFunc("/add-feed", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		// Charger les catégories pour le template
+		categories, _ := storage.GetAllCategoriesByUser(db, claims.UserID)
+
+		if r.Method == "POST" {
+			url := r.FormValue("url")
+			categoryIDStr := r.FormValue("category_id")
+
+			if url != "" {
+				feed, items, err := parser.ParseFeed(url)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				feed.Include = true
+				feed.UserID = claims.UserID
+
+				// Ajouter le flux
+				err = storage.AddFeedForUser(db, feed, items, claims.UserID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				// Si une catégorie a été sélectionnée, l'assigner au flux
+				if categoryIDStr != "" && categoryIDStr != "0" {
+					categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+					if err == nil {
+						err = storage.AssignFeedToCategory(db, feed.ID, uint(categoryID), claims.UserID)
+						if err != nil {
+							// Ne pas bloquer la création du flux si l'assignation échoue
+							// Mais logger l'erreur
+							logger.Warnf("Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+						}
+					}
+				}
+			}
+			http.Redirect(w, r, "/feeds", http.StatusSeeOther)
+			return
+		}
+		Tmpl.ExecuteTemplate(w, "add_feed.html", categories)
+	})
+
+	r.HandleFunc("/feeds", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		feeds, _ := storage.GetAllFeedsByUser(db, claims.UserID)
+		Tmpl.ExecuteTemplate(w, "feeds.html", feeds)
+	})
+
+	// Feed operations
+	r.HandleFunc("/feed/{id}/toggle", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseUint(vars["id"], 10, 32)
+		if err := storage.ToggleFeedIncludeForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		// Redirect back to the referring page, or to home if no referer
+		referer := r.Referer()
+		if referer != "" {
+			// Extract query params from referer if it's from our site
+			if strings.Contains(referer, "/") && !strings.Contains(referer, "/feed/") {
+				http.Redirect(w, r, referer, http.StatusSeeOther)
+				return
+			}
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	})
+
+	r.HandleFunc("/feed/{id}/delete", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseUint(vars["id"], 10, 32)
+		if err := storage.DeleteFeedForUser(db, uint(id), claims.UserID); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		http.Redirect(w, r, "/feeds", http.StatusSeeOther)
+	})
+
+	r.HandleFunc("/feed/{id}/edit", func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		claims, ok := auth.GetUser(r.Context())
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseUint(vars["id"], 10, 32)
+
+		// Charger les catégories pour le template
+		categories, _ := storage.GetAllCategoriesByUser(db, claims.UserID)
+
+		if r.Method == "POST" {
+			feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+			if err != nil {
+				http.Error(w, "Feed not found or access denied", http.StatusForbidden)
+				return
+			}
+			feed.URL = r.FormValue("url")
+			feed.Title = r.FormValue("title")
+			feed.Include = r.FormValue("include") == "on"
+
+			// Gérer la catégorie
+			categoryIDStr := r.FormValue("category_id")
+			if categoryIDStr != "" && categoryIDStr != "0" {
+				categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+				if err == nil {
+					// Assigner à la nouvelle catégorie
+					err = storage.AssignFeedToCategory(db, feed.ID, uint(categoryID), claims.UserID)
+					if err != nil {
+						logger.Warnf("Failed to assign feed %d to category %d: %v", feed.ID, categoryID, err)
+					}
+				} else {
+					// Retirer de toute catégorie (catégorie 0 sélectionnée)
+					if categoryIDStr == "0" {
+						err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
+						if err != nil {
+							logger.Warnf("Failed to remove feed %d from category: %v", feed.ID, err)
+						}
+					}
+				}
+			} else {
+				// Retirer de toute catégorie (champ vide = pas de catégorie)
+				err = storage.RemoveFeedFromCategory(db, feed.ID, claims.UserID)
+				if err != nil {
+					logger.Warnf("Failed to remove feed %d from category: %v", feed.ID, err)
+				}
+			}
+
+			if err := storage.UpdateFeedForUser(db, feed, claims.UserID); err != nil {
+				http.Error(w, err.Error(), http.StatusForbidden)
+				return
+			}
+
+			_, items, err := parser.ParseFeed(feed.URL)
+			if err == nil {
+				storage.AddFeedForUser(db, feed, items, claims.UserID)
+			}
+
+			http.Redirect(w, r, "/feeds", http.StatusSeeOther)
+			return
+		}
+
+		feed, err := storage.GetFeedByIDAndUser(db, uint(id), claims.UserID)
+		if err != nil {
+			http.Error(w, "Feed not found or access denied", http.StatusForbidden)
+			return
+		}
+
+		// Get current category ID (if any)
+		var currentCategoryID uint = 0
+		if feed.CategoryID != nil {
+			currentCategoryID = *feed.CategoryID
+		}
+
+		Tmpl.ExecuteTemplate(w, "edit_feed.html", struct {
+			Feed           *models.Feed
+			Categories     []models.Category
+			CurrentCategoryID uint
+		}{
+			Feed:           feed,
+			Categories:     categories,
+			CurrentCategoryID: currentCategoryID,
+		})
+	})
+}

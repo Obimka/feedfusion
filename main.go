@@ -183,7 +183,7 @@ func migrateToMultiUser(db *gorm.DB) {
 	// Check if user_id column exists in feeds table
 	var count int64
 	db.Raw("SELECT COUNT(*) FROM pragma_table_info('feeds') WHERE name = 'user_id'").Count(&count)
-	
+
 	if count == 0 {
 		// Add user_id column with default value 1
 		// Using default value allows adding to existing table
@@ -191,26 +191,26 @@ func migrateToMultiUser(db *gorm.DB) {
 			logger.Errorf("Error adding user_id column: %v", err)
 			return
 		}
-		
+
 		// Update existing rows to have user_id = 1 (will be assigned to admin)
 		if err := db.Exec("UPDATE feeds SET user_id = 1 WHERE user_id IS NULL").Error; err != nil {
 			logger.Errorf("Error updating existing feeds: %v", err)
 			return
 		}
-		
+
 		logger.Infof("Successfully added user_id column to feeds table")
 	}
-	
+
 	// Create index on user_id for better performance
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id)").Error; err != nil {
 		logger.Errorf("Error creating index: %v", err)
 	}
-	
+
 	// Auto-migrate User table
 	if err := db.AutoMigrate(&models.User{}); err != nil {
 		logger.Warnf("User table migration failed: %v", err)
 	}
-	
+
 	// Assign existing feeds (with user_id=1) to admin - will be done in createFirstAdmin
 }
 
@@ -259,14 +259,14 @@ func createFirstAdmin(db *gorm.DB) uint {
 	}
 
 	logger.Infof("Created first admin user: %s", adminUsername)
-	
+
 	// Assign existing feeds to this admin
 	if err := db.Model(&models.Feed{}).
 		Where("user_id IS NULL OR user_id = 0 OR user_id = 1").
 		Update("user_id", admin.ID).Error; err != nil {
 		logger.Warnf("Could not assign existing feeds to admin: %v", err)
 	}
-	
+
 	return admin.ID
 }
 
