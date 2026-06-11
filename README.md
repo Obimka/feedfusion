@@ -2,7 +2,6 @@
 
 ![Go](https://img.shields.io/badge/go-1.25-blue.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/obimka/feedfusion)](https://goreportcard.com/report/github.com/obimka/feedfusion)
-[![Build Status](https://github.com/obimka/feedfusion/actions/workflows/go.yml/badge.svg)](https://github.com/obimka/feedfusion/actions/workflows/go.yml)
 
 **FeedFusion** is a self-hosted RSS/Atom feed aggregator with WebSub support for real-time updates.
 
