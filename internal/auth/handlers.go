@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"rss-aggregator/internal/models"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
-	"rss-aggregator/internal/models"
 )
 
 // AuthHandler holds dependencies for auth handlers

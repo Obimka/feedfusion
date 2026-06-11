@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"rss-aggregator/internal/models"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"rss-aggregator/internal/models"
 )
 
 // Test helper to set up an in-memory database
@@ -44,10 +45,10 @@ func TestAddFeedForUser_NewFeed(t *testing.T) {
 
 	userID := uint(1)
 	feed := &models.Feed{
-		URL:    "https://example.com/new-feed.xml",
-		Title:  "New Feed",
-		Link:   "https://example.com/new-feed",
-		Type:   "rss",
+		URL:   "https://example.com/new-feed.xml",
+		Title: "New Feed",
+		Link:  "https://example.com/new-feed",
+		Type:  "rss",
 	}
 
 	items := []models.Item{
@@ -101,10 +102,10 @@ func TestAddFeedForUser_ExistingFeed(t *testing.T) {
 
 	// Create initial feed
 	feed := &models.Feed{
-		URL:    "https://example.com/existing-feed.xml",
-		Title:  "Initial Title",
-		Link:   "https://example.com/existing-feed",
-		Type:   "rss",
+		URL:     "https://example.com/existing-feed.xml",
+		Title:   "Initial Title",
+		Link:    "https://example.com/existing-feed",
+		Type:    "rss",
 		Include: true,
 	}
 
@@ -124,10 +125,10 @@ func TestAddFeedForUser_ExistingFeed(t *testing.T) {
 
 	// Add the same feed URL again with updated items
 	updatedFeed := &models.Feed{
-		URL:    "https://example.com/existing-feed.xml",
-		Title:  "Updated Title",
-		Link:   "https://example.com/existing-feed",
-		Type:   "rss",
+		URL:     "https://example.com/existing-feed.xml",
+		Title:   "Updated Title",
+		Link:    "https://example.com/existing-feed",
+		Type:    "rss",
 		Include: false, // Changed
 	}
 

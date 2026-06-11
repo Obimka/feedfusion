@@ -3,11 +3,10 @@ package handlers
 import (
 	"net/http"
 	"rss-aggregator/internal/logger"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
-
-
 
 func registerAuthRoutes(r *mux.Router, db *gorm.DB) {
 	// Login page - public access

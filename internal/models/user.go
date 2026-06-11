@@ -4,11 +4,11 @@ import "time"
 
 // User represents an authenticated user with their feeds
 type User struct {
-	ID       uint   `json:"id" gorm:"primarykey"`
-	Username string `json:"username" gorm:"unique;not null"`
-	Password string `json:"-" gorm:"not null"` // Never return password in JSON
-	IsAdmin  bool   `json:"is_admin" gorm:"default:false"`
-	Feeds    []Feed `json:"feeds,omitempty" gorm:"foreignKey:UserID"`
+	ID        uint      `json:"id" gorm:"primarykey"`
+	Username  string    `json:"username" gorm:"unique;not null"`
+	Password  string    `json:"-" gorm:"not null"` // Never return password in JSON
+	IsAdmin   bool      `json:"is_admin" gorm:"default:false"`
+	Feeds     []Feed    `json:"feeds,omitempty" gorm:"foreignKey:UserID"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }

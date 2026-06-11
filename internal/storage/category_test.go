@@ -3,9 +3,10 @@ package storage
 import (
 	"testing"
 
+	"rss-aggregator/internal/models"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"rss-aggregator/internal/models"
 )
 
 // Test helper to set up an in-memory database with Category support
@@ -61,7 +62,7 @@ func TestGetAllCategoriesByUser_WithCategories(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create test categories
 	db.Create(&models.Category{UserID: userID, Name: "Technology", Color: "#FF5733"})
 	db.Create(&models.Category{UserID: userID, Name: "Sports", Color: "#33FF57"})
@@ -85,7 +86,7 @@ func TestGetAllCategoriesByUser_OrderedByName(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create categories in non-alphabetical order
 	db.Create(&models.Category{UserID: userID, Name: "Zebra", Color: "#000000"})
 	db.Create(&models.Category{UserID: userID, Name: "Alpha", Color: "#000000"})
@@ -226,7 +227,7 @@ func TestCreateCategoryForUser_DuplicateName(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create first category
 	first := &models.Category{Name: "Duplicate", Color: "#000000"}
 	CreateCategoryForUser(db, first, userID)
@@ -323,11 +324,11 @@ func TestUpdateCategoryForUser_DuplicateName(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create two categories
 	first := &models.Category{UserID: userID, Name: "First", Color: "#000000"}
 	db.Create(first)
-	
+
 	second := &models.Category{UserID: userID, Name: "Second", Color: "#111111"}
 	db.Create(second)
 
@@ -357,9 +358,9 @@ func TestDeleteCategoryForUser_Success(t *testing.T) {
 
 	// Create a feed and assign it to the category
 	feed := &models.Feed{
-		URL:       "https://example.com/feed.xml",
-		Title:     "Test Feed",
-		UserID:    userID,
+		URL:        "https://example.com/feed.xml",
+		Title:      "Test Feed",
+		UserID:     userID,
 		CategoryID: &category.ID,
 	}
 	db.Create(feed)
@@ -413,7 +414,7 @@ func TestAssignFeedToCategory_Success(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create category
 	category := &models.Category{UserID: userID, Name: "Test Category", Color: "#000000"}
 	db.Create(category)
@@ -453,7 +454,7 @@ func TestAssignFeedToCategory_WrongUser(t *testing.T) {
 
 	userID := uint(1)
 	otherUserID := uint(2)
-	
+
 	// Create category for user 1
 	category := &models.Category{UserID: userID, Name: "Test Category", Color: "#000000"}
 	db.Create(category)
@@ -486,16 +487,16 @@ func TestRemoveFeedFromCategory_Success(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create category
 	category := &models.Category{UserID: userID, Name: "Test Category", Color: "#000000"}
 	db.Create(category)
 
 	// Create feed with category
 	feed := &models.Feed{
-		URL:       "https://example.com/feed.xml",
-		Title:     "Test Feed",
-		UserID:    userID,
+		URL:        "https://example.com/feed.xml",
+		Title:      "Test Feed",
+		UserID:     userID,
 		CategoryID: &category.ID,
 	}
 	db.Create(feed)
@@ -527,22 +528,22 @@ func TestGetFeedsByCategoryAndUser_Success(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create category
 	category := &models.Category{UserID: userID, Name: "Test Category", Color: "#000000"}
 	db.Create(category)
 
 	// Create feeds
 	feed1 := &models.Feed{
-		URL:       "https://example.com/feed1.xml",
-		Title:     "Feed 1",
-		UserID:    userID,
+		URL:        "https://example.com/feed1.xml",
+		Title:      "Feed 1",
+		UserID:     userID,
 		CategoryID: &category.ID,
 	}
 	feed2 := &models.Feed{
-		URL:       "https://example.com/feed2.xml",
-		Title:     "Feed 2",
-		UserID:    userID,
+		URL:        "https://example.com/feed2.xml",
+		Title:      "Feed 2",
+		UserID:     userID,
 		CategoryID: &category.ID,
 	}
 	feed3 := &models.Feed{
@@ -597,16 +598,16 @@ func TestGetUncategorizedFeedsByUser_Success(t *testing.T) {
 	}()
 
 	userID := uint(1)
-	
+
 	// Create category
 	category := &models.Category{UserID: userID, Name: "Test Category", Color: "#000000"}
 	db.Create(category)
 
 	// Create feeds
 	feed1 := &models.Feed{
-		URL:       "https://example.com/feed1.xml",
-		Title:     "Feed 1",
-		UserID:    userID,
+		URL:        "https://example.com/feed1.xml",
+		Title:      "Feed 1",
+		UserID:     userID,
 		CategoryID: &category.ID,
 	}
 	feed2 := &models.Feed{

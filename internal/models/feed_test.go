@@ -36,7 +36,7 @@ func TestFeed_Model(t *testing.T) {
 func TestFeed_Defaults(t *testing.T) {
 	// Test default values for Feed
 	feed := Feed{
-		URL: "https://example.com/feed.xml",
+		URL:   "https://example.com/feed.xml",
 		Title: "Test Feed",
 	}
 
@@ -223,20 +223,20 @@ func TestMultipleFeeds_SameGUID(t *testing.T) {
 	// This tests the multi-user scenario where different feeds
 	// (possibly with same URL for different users) can have items
 	// with the same GUID
-	
+
 	// Feed 1 (user 1)
 	feed1 := Feed{
-		ID:    1,
-		URL:   "https://example.com/feed.xml",
-		Title: "User 1 Feed",
+		ID:     1,
+		URL:    "https://example.com/feed.xml",
+		Title:  "User 1 Feed",
 		UserID: 1,
 	}
 
 	// Feed 2 (user 2) - same URL as feed1, but different user
 	feed2 := Feed{
-		ID:    2,
-		URL:   "https://example.com/feed.xml",
-		Title: "User 2 Feed",
+		ID:     2,
+		URL:    "https://example.com/feed.xml",
+		Title:  "User 2 Feed",
 		UserID: 2,
 	}
 
@@ -270,7 +270,7 @@ func TestMultipleFeeds_SameGUID(t *testing.T) {
 	// The unique constraint should be on (feed_id, guid), not on guid alone
 	if item1.Guid == item2.Guid && item1.FeedID != item2.FeedID {
 		// This is the expected behavior for multi-user support
-		t.Logf("✓ Items with same GUID (%s) can exist for different feeds (feed_id: %d, %d)", 
+		t.Logf("✓ Items with same GUID (%s) can exist for different feeds (feed_id: %d, %d)",
 			item1.Guid, item1.FeedID, item2.FeedID)
 	}
 }

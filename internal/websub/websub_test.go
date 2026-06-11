@@ -75,5 +75,3 @@ func TestVerifySignature(t *testing.T) {
 		}
 	})
 }
-
-

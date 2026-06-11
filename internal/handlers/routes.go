@@ -11,7 +11,7 @@ import (
 // RegisterRoutes registers all the routes for the application
 func RegisterRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 	logger.Infof("Registering routes...")
-	
+
 	// Auth routes
 	registerAuthRoutes(r, db)
 

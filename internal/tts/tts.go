@@ -11,17 +11,17 @@ import (
 
 // TTSConfig holds configuration for the TTS service
 type TTSConfig struct {
-	APIKey      string
-	APIBaseURL  string
-	VoiceID     string // Mistral voice ID (e.g., "c69964a6-ab8b-4f8a-9465-ec0925096ec8")
-	Model       string // e.g., "voxtral-mini-tts-2603"
+	APIKey     string
+	APIBaseURL string
+	VoiceID    string // Mistral voice ID (e.g., "c69964a6-ab8b-4f8a-9465-ec0925096ec8")
+	Model      string // e.g., "voxtral-mini-tts-2603"
 }
 
 // DefaultTTSConfig returns default TTS configuration
 func DefaultTTSConfig() TTSConfig {
 	return TTSConfig{
 		APIKey:     "", // Must be set by user
-		APIBaseURL:  "https://api.mistral.ai/v1/audio/",
+		APIBaseURL: "https://api.mistral.ai/v1/audio/",
 		VoiceID:    "c69964a6-ab8b-4f8a-9465-ec0925096ec8", // Paul - Neutral (en_us)
 		Model:      "voxtral-mini-tts-2603",
 	}
@@ -29,10 +29,10 @@ func DefaultTTSConfig() TTSConfig {
 
 // MistralTTSRequest represents a request to the Mistral TTS API
 type MistralTTSRequest struct {
-	Model       string `json:"model"`
-	Input       string `json:"input"`
-	VoiceID     string `json:"voice_id"`
-	Format      string `json:"response_format,omitempty"`
+	Model   string `json:"model"`
+	Input   string `json:"input"`
+	VoiceID string `json:"voice_id"`
+	Format  string `json:"response_format,omitempty"`
 }
 
 // MistralTTSResponse represents the response from the Mistral TTS API

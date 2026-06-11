@@ -5,9 +5,10 @@ import (
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/storage"
 	"rss-aggregator/internal/websub"
+	"strconv"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
-	"strconv"
 )
 
 func registerWebSubRoutes(r *mux.Router, db *gorm.DB) {

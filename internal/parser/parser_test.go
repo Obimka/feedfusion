@@ -376,8 +376,8 @@ func TestStripHTMLTags_ComplexHTML(t *testing.T) {
 			expected: "Text",
 		},
 		{
-			name:     "Multiple paragraphs without space",
-			input:    `<p>First</p><p>Second</p>`,
+			name:  "Multiple paragraphs without space",
+			input: `<p>First</p><p>Second</p>`,
 			// After removing tags: "FirstSecond", strings.Fields keeps it as one word
 			expected: "FirstSecond",
 		},
@@ -392,8 +392,8 @@ func TestStripHTMLTags_ComplexHTML(t *testing.T) {
 			expected: "Before bold and italic After",
 		},
 		{
-			name:     "Line breaks without space",
-			input:    `<p>Line 1</p><br><p>Line 2</p>`,
+			name:  "Line breaks without space",
+			input: `<p>Line 1</p><br><p>Line 2</p>`,
 			// After removing tags: "Line 1Line 2", strings.Fields normalizes whitespace but consecutive non-space chars stay together
 			expected: "Line 1Line 2",
 		},

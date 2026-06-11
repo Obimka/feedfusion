@@ -5,11 +5,10 @@ import (
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/storage"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
-
-
 
 func registerCategoryRoutes(r *mux.Router, db *gorm.DB) {
 	// Category management page

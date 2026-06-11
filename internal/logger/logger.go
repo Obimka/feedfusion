@@ -3,8 +3,9 @@ package logger
 import (
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"rss-aggregator/internal/config"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Logger est une instance globale de logrus.Logger pour être utilisée dans tout le projet.

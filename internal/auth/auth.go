@@ -4,9 +4,10 @@ import (
 	"errors"
 	"time"
 
+	"rss-aggregator/internal/models"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"rss-aggregator/internal/models"
 )
 
 var (
@@ -37,14 +38,14 @@ type Claims struct {
 type JWTConfig struct {
 	SecretKey     string
 	Expiration    time.Duration
-	RefreshExpiry  time.Duration
+	RefreshExpiry time.Duration
 }
 
 // DefaultJWTConfig returns sensible defaults
 func DefaultJWTConfig() JWTConfig {
 	return JWTConfig{
-		SecretKey:    "your-very-secure-secret-key-change-in-production",
-		Expiration:   24 * time.Hour,
+		SecretKey:     "your-very-secure-secret-key-change-in-production",
+		Expiration:    24 * time.Hour,
 		RefreshExpiry: 7 * 24 * time.Hour,
 	}
 }

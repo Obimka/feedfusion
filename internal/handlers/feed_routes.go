@@ -8,13 +8,12 @@ import (
 	"rss-aggregator/internal/models"
 	"rss-aggregator/internal/parser"
 	"rss-aggregator/internal/storage"
-	"github.com/gorilla/mux"
-	"gorm.io/gorm"
 	"strconv"
 	"strings"
+
+	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
-
-
 
 func registerFeedRoutes(r *mux.Router, db *gorm.DB) {
 	// Main feed page
@@ -53,7 +52,7 @@ func registerFeedRoutes(r *mux.Router, db *gorm.DB) {
 		// Get feed IDs based on filter mode
 		var feedIDs []uint
 		var selectedCategory *models.Category
-		
+
 		if strings.HasPrefix(filterMode, "category:") {
 			// Filter by category ID
 			categoryIDStr := strings.TrimPrefix(filterMode, "category:")
@@ -163,41 +162,41 @@ func registerFeedRoutes(r *mux.Router, db *gorm.DB) {
 		categories, _ := storage.GetAllCategoriesByUser(db, userID)
 
 		Tmpl.ExecuteTemplate(w, "index.html", struct {
-			Items           []models.Item
-			AllFeeds        []models.Feed
-			Categories      []models.Category
+			Items            []models.Item
+			AllFeeds         []models.Feed
+			Categories       []models.Category
 			SelectedCategory *models.Category
-			IncludedIDs     []uint
-			Count           int64
-			Limit           int
-			Offset          int
-			HasOlder        bool
-			HasNewer        bool
-			NextOffset      int
-			PrevOffset      int
-			FilterMode      string
-			ViewMode        string
-			ShowRead        bool
-			WeatherCities   []config.WeatherCity
-			WeatherCityMap  map[string]config.WeatherCity
+			IncludedIDs      []uint
+			Count            int64
+			Limit            int
+			Offset           int
+			HasOlder         bool
+			HasNewer         bool
+			NextOffset       int
+			PrevOffset       int
+			FilterMode       string
+			ViewMode         string
+			ShowRead         bool
+			WeatherCities    []config.WeatherCity
+			WeatherCityMap   map[string]config.WeatherCity
 		}{
-			Items:           items,
-			AllFeeds:        allFeeds,
-			Categories:      categories,
+			Items:            items,
+			AllFeeds:         allFeeds,
+			Categories:       categories,
 			SelectedCategory: selectedCategory,
-			IncludedIDs:     includedIDs,
-			Count:           count,
-			Limit:           limit,
-			Offset:          offset,
-			HasOlder:        hasOlder,
-			HasNewer:        hasNewer,
-			NextOffset:      nextOffset,
-			PrevOffset:      prevOffset,
-			FilterMode:     filterMode,
-			ViewMode:       viewMode,
-			ShowRead:       showRead,
-			WeatherCities:  weatherCities,
-			WeatherCityMap: weatherCityMap,
+			IncludedIDs:      includedIDs,
+			Count:            count,
+			Limit:            limit,
+			Offset:           offset,
+			HasOlder:         hasOlder,
+			HasNewer:         hasNewer,
+			NextOffset:       nextOffset,
+			PrevOffset:       prevOffset,
+			FilterMode:       filterMode,
+			ViewMode:         viewMode,
+			ShowRead:         showRead,
+			WeatherCities:    weatherCities,
+			WeatherCityMap:   weatherCityMap,
 		})
 	})
 
@@ -386,12 +385,12 @@ func registerFeedRoutes(r *mux.Router, db *gorm.DB) {
 		}
 
 		Tmpl.ExecuteTemplate(w, "edit_feed.html", struct {
-			Feed           *models.Feed
-			Categories     []models.Category
+			Feed              *models.Feed
+			Categories        []models.Category
 			CurrentCategoryID uint
 		}{
-			Feed:           feed,
-			Categories:     categories,
+			Feed:              feed,
+			Categories:        categories,
 			CurrentCategoryID: currentCategoryID,
 		})
 	})

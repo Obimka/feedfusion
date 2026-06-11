@@ -5,12 +5,11 @@ import (
 	"net/url"
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/storage"
+	"strconv"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
-	"strconv"
 )
-
-
 
 func registerItemRoutes(r *mux.Router, db *gorm.DB) {
 	r.HandleFunc("/item/{id}/read", func(w http.ResponseWriter, r *http.Request) {

@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"rss-aggregator/internal/auth"
 	"rss-aggregator/internal/logger"
+
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
-
-
 
 func registerAPIRoutes(r *mux.Router, db *gorm.DB, jwtConfig auth.JWTConfig) {
 	// Category API routes

@@ -74,8 +74,8 @@ func TestGenerateJWT(t *testing.T) {
 
 func TestGenerateRefreshToken(t *testing.T) {
 	config := JWTConfig{
-		SecretKey:   "test-secret-key-12345",
-		Expiration:  time.Hour,
+		SecretKey:     "test-secret-key-12345",
+		Expiration:    time.Hour,
 		RefreshExpiry: 7 * 24 * time.Hour,
 	}
 
